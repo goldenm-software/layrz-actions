@@ -49,14 +49,14 @@ jobs:
     steps:
       # Download artifacts first
       - name: Download Python coverage
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: python-coverage
           path: python-coverage
         continue-on-error: true
 
       - name: Download Go coverage
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: go-coverage
           path: go-coverage

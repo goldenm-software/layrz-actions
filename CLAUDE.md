@@ -87,7 +87,7 @@ When the following phrases are used, changes should be automatically committed a
   uses: goldenm-software/layrz-actions/.github/actions/check-python@v1
 
 - name: Download coverage
-  uses: actions/download-artifact@v4
+  uses: actions/download-artifact@v8
   with:
     name: ${{ steps.python-checks.outputs.artifact-id }}
 ```

@@ -47,7 +47,7 @@ Coverage files must be downloaded before using this action:
 
 ```yaml
 - name: Download coverage artifacts
-  uses: actions/download-artifact@v4
+  uses: actions/download-artifact@v8
   with:
     name: python-coverage
     path: python-coverage/
