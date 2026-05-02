@@ -1,0 +1,45 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+' # Only semver tags (v1.0.0, v1.2.3, etc.)
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # Fetch all history for changelog generation
+
+      - name: Generate changelog
+        id: changelog
+        uses: ./.github/actions/changelog
+        with:
+          post-comment: false # Don't post comment for releases
+          exclude-types: 'chore,style'
+          comment-header: '## 📋 Release Notes'
+
+      - name: Determine if pre-release
+        id: prerelease
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [[ "$TAG" =~ (alpha|beta|rc) ]]; then
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ github.ref_name }}
+          body: ${{ steps.changelog.outputs.changelog }}
+          draft: false
+          prerelease: ${{ steps.prerelease.outputs.prerelease }}
+          token: ${{ secrets.GITHUB_TOKEN }}
