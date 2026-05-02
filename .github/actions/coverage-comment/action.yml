@@ -57,8 +57,10 @@ runs:
           COVERAGE_SUMMARY=$(lcov --summary "${{ inputs.dart-coverage-path }}" 2>&1 || true)
           COVERAGE_PCT=$(echo "$COVERAGE_SUMMARY" | grep -oP 'lines\.*: \K[\d.]+(?=%)' || true)
           COVERAGE_PCT=${COVERAGE_PCT:-0.0}
-          LINES_HIT=$(grep -o 'DA:' "${{ inputs.dart-coverage-path }}" | wc -l || true)
-          LINES_TOTAL=$(grep -o 'LF:' "${{ inputs.dart-coverage-path }}" | wc -l || true)
+          LINES_HIT=$(grep -c '^DA:[^,]*,[^0]' "${{ inputs.dart-coverage-path }}" || true)
+          LINES_HIT=${LINES_HIT:-0}
+          LINES_TOTAL=$(grep -c '^DA:' "${{ inputs.dart-coverage-path }}" || true)
+          LINES_TOTAL=${LINES_TOTAL:-0}
           echo "coverage_pct=$COVERAGE_PCT" >> $GITHUB_OUTPUT
           echo "lines_hit=$LINES_HIT" >> $GITHUB_OUTPUT
           echo "lines_total=$LINES_TOTAL" >> $GITHUB_OUTPUT
