@@ -85,11 +85,11 @@ runs:
         lcov --capture \
           --directory build \
           --output-file build/coverage.info \
-          --ignore-errors mismatch \
-          --no-external
+          --ignore-errors mismatch,gcov,source
         lcov --remove build/coverage.info \
           '*/build/_deps/*' \
           '*/tests/*' \
+          '/usr/*' \
           --output-file build/coverage.info \
           --ignore-errors unused,empty
         lcov --list build/coverage.info || true
