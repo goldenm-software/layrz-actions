@@ -10,7 +10,7 @@ inputs:
   flutter-version:
     description: 'Flutter version to use'
     required: false
-    default: '3.41.7'
+    default: '3.41.9'
   run-checks:
     description: 'Whether to run Flutter analyze'
     required: false
@@ -69,7 +69,7 @@ runs:
       if: ${{ inputs.run-tests == 'true' }}
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      run: flutter test --machine --coverage > test-results.json
+      run: flutter test --machine --coverage 2>&1 | tee test-results.json; exit ${PIPESTATUS[0]}
 
     - name: Publish test results
       if: ${{ inputs.run-tests == 'true' }}
