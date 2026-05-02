@@ -54,11 +54,11 @@ runs:
       shell: bash
       run: |
         if [ -f "${{ inputs.dart-coverage-path }}" ]; then
-          COVERAGE_SUMMARY=$(lcov --summary "${{ inputs.dart-coverage-path }}" 2>&1)
-          COVERAGE_PCT=$(echo "$COVERAGE_SUMMARY" | grep -oP 'lines\.*: \K[\d.]+(?=%)')
+          COVERAGE_SUMMARY=$(lcov --summary "${{ inputs.dart-coverage-path }}" 2>&1 || true)
+          COVERAGE_PCT=$(echo "$COVERAGE_SUMMARY" | grep -oP 'lines\.*: \K[\d.]+(?=%)' || true)
           COVERAGE_PCT=${COVERAGE_PCT:-0.0}
-          LINES_HIT=$(grep -o 'DA:' "${{ inputs.dart-coverage-path }}" | wc -l)
-          LINES_TOTAL=$(grep -o 'LF:' "${{ inputs.dart-coverage-path }}" | wc -l)
+          LINES_HIT=$(grep -o 'DA:' "${{ inputs.dart-coverage-path }}" | wc -l || true)
+          LINES_TOTAL=$(grep -o 'LF:' "${{ inputs.dart-coverage-path }}" | wc -l || true)
           echo "coverage_pct=$COVERAGE_PCT" >> $GITHUB_OUTPUT
           echo "lines_hit=$LINES_HIT" >> $GITHUB_OUTPUT
           echo "lines_total=$LINES_TOTAL" >> $GITHUB_OUTPUT
@@ -73,11 +73,13 @@ runs:
       shell: bash
       run: |
         if [ -f "${{ inputs.cpp-coverage-path }}" ]; then
-          COVERAGE_SUMMARY=$(lcov --summary "${{ inputs.cpp-coverage-path }}" 2>&1)
-          COVERAGE_PCT=$(echo "$COVERAGE_SUMMARY" | grep -oP 'lines\.*: \K[\d.]+(?=%)')
+          COVERAGE_SUMMARY=$(lcov --summary "${{ inputs.cpp-coverage-path }}" 2>&1 || true)
+          COVERAGE_PCT=$(echo "$COVERAGE_SUMMARY" | grep -oP 'lines\.*: \K[\d.]+(?=%)' || true)
           COVERAGE_PCT=${COVERAGE_PCT:-0.0}
-          LINES_HIT=$(grep -c '^DA:[^,]*,[^0]' "${{ inputs.cpp-coverage-path }}" || echo 0)
-          LINES_TOTAL=$(grep -c '^DA:' "${{ inputs.cpp-coverage-path }}" || echo 0)
+          LINES_HIT=$(grep -c '^DA:[^,]*,[^0]' "${{ inputs.cpp-coverage-path }}" || true)
+          LINES_HIT=${LINES_HIT:-0}
+          LINES_TOTAL=$(grep -c '^DA:' "${{ inputs.cpp-coverage-path }}" || true)
+          LINES_TOTAL=${LINES_TOTAL:-0}
           echo "coverage_pct=$COVERAGE_PCT" >> $GITHUB_OUTPUT
           echo "lines_hit=$LINES_HIT" >> $GITHUB_OUTPUT
           echo "lines_total=$LINES_TOTAL" >> $GITHUB_OUTPUT
