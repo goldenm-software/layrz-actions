@@ -15,6 +15,10 @@ inputs:
     description: 'Enable Dart/Flutter coverage reporting'
     required: false
     default: 'false'
+  enable-cpp:
+    description: 'Enable C++ coverage reporting'
+    required: false
+    default: 'false'
   python-coverage-path:
     description: 'Path to Python coverage.json file (must be downloaded first)'
     required: false
@@ -27,6 +31,10 @@ inputs:
     description: 'Path to Dart lcov.info file (must be downloaded first)'
     required: false
     default: 'flutter-coverage/lcov.info'
+  cpp-coverage-path:
+    description: 'Path to C++ lcov.info file (must be downloaded first)'
+    required: false
+    default: 'cpp-coverage/lcov.info'
   github-token:
     description: 'GitHub token for posting comments'
     required: false
@@ -35,8 +43,8 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Install lcov (for Dart)
-      if: ${{ inputs.enable-dart == 'true' }}
+    - name: Install lcov (for Dart/C++)
+      if: ${{ inputs.enable-dart == 'true' || inputs.enable-cpp == 'true' }}
       shell: bash
       run: sudo apt-get update && sudo apt-get install -y lcov
 
@@ -51,6 +59,25 @@ runs:
           COVERAGE_PCT=${COVERAGE_PCT:-0.0}
           LINES_HIT=$(grep -o 'DA:' "${{ inputs.dart-coverage-path }}" | wc -l)
           LINES_TOTAL=$(grep -o 'LF:' "${{ inputs.dart-coverage-path }}" | wc -l)
+          echo "coverage_pct=$COVERAGE_PCT" >> $GITHUB_OUTPUT
+          echo "lines_hit=$LINES_HIT" >> $GITHUB_OUTPUT
+          echo "lines_total=$LINES_TOTAL" >> $GITHUB_OUTPUT
+          echo "available=true" >> $GITHUB_OUTPUT
+        else
+          echo "available=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Parse C++ coverage
+      if: ${{ inputs.enable-cpp == 'true' }}
+      id: cpp-coverage
+      shell: bash
+      run: |
+        if [ -f "${{ inputs.cpp-coverage-path }}" ]; then
+          COVERAGE_SUMMARY=$(lcov --summary "${{ inputs.cpp-coverage-path }}" 2>&1)
+          COVERAGE_PCT=$(echo "$COVERAGE_SUMMARY" | grep -oP 'lines\.*: \K[\d.]+(?=%)')
+          COVERAGE_PCT=${COVERAGE_PCT:-0.0}
+          LINES_HIT=$(grep -c '^DA:[^,]*,[^0]' "${{ inputs.cpp-coverage-path }}" || echo 0)
+          LINES_TOTAL=$(grep -c '^DA:' "${{ inputs.cpp-coverage-path }}" || echo 0)
           echo "coverage_pct=$COVERAGE_PCT" >> $GITHUB_OUTPUT
           echo "lines_hit=$LINES_HIT" >> $GITHUB_OUTPUT
           echo "lines_total=$LINES_TOTAL" >> $GITHUB_OUTPUT
@@ -114,6 +141,21 @@ runs:
               sections.push(`### 🎯 Dart/Flutter\n\n| Metric | Value |\n|--------|-------|\n| **Coverage** | **${coveragePct}%** |\n| Lines covered | ${linesHit} / ${linesTotal} |\n| Lines missing | ${linesMissing} |`);
             } else {
               sections.push(`### 🎯 Dart/Flutter\n\n> No coverage data available.`);
+            }
+          }
+
+          // C++ coverage
+          if (${{ inputs.enable-cpp }}) {
+            const available = '${{ steps.cpp-coverage.outputs.available }}' === 'true';
+            if (available) {
+              const coveragePct = '${{ steps.cpp-coverage.outputs.coverage_pct }}';
+              const linesHit = '${{ steps.cpp-coverage.outputs.lines_hit }}';
+              const linesTotal = '${{ steps.cpp-coverage.outputs.lines_total }}';
+              const linesMissing = parseInt(linesTotal) - parseInt(linesHit);
+
+              sections.push(`### ⚙️ C++\n\n| Metric | Value |\n|--------|-------|\n| **Coverage** | **${coveragePct}%** |\n| Lines covered | ${linesHit} / ${linesTotal} |\n| Lines missing | ${linesMissing} |`);
+            } else {
+              sections.push(`### ⚙️ C++\n\n> No coverage data available.`);
             }
           }
 
