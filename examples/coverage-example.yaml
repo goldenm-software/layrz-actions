@@ -1,0 +1,76 @@
+# Example: Using the coverage-comment composite action
+# IMPORTANT: This action requires artifacts to be downloaded FIRST
+
+on:
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  # First, run your check jobs (using composite actions)
+  lint-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: goldenm-software/layrz-actions/.github/actions/check-python@v1
+        with:
+          run-tests: true
+          coverage-library: "myapp"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: python-coverage
+          path: coverage.json
+          retention-days: 1
+
+  lint-go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: goldenm-software/layrz-actions/.github/actions/check-go@v1
+        with:
+          run-tests: true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: go-coverage
+          path: |
+            coverage.out
+            coverage-summary.txt
+          retention-days: 1
+
+  # Then, download artifacts and post coverage report
+  coverage-report:
+    runs-on: ubuntu-latest
+    needs: [lint-python, lint-go]
+    if: always()
+    steps:
+      # Download artifacts first
+      - name: Download Python coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: python-coverage
+          path: python-coverage
+        continue-on-error: true
+
+      - name: Download Go coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: go-coverage
+          path: go-coverage
+        continue-on-error: true
+
+      # Optional: Add custom steps before posting coverage
+      - name: Custom coverage processing
+        run: echo "Processing coverage data..."
+
+      # Now use the composite action to parse and post
+      - uses: goldenm-software/layrz-actions/.github/actions/coverage-comment@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          enable-python: true
+          enable-go: true
+          python-coverage-path: "python-coverage/coverage.json"
+          go-coverage-path: "go-coverage/coverage-summary.txt"

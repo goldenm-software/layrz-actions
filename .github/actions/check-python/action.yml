@@ -1,0 +1,94 @@
+name: 'Python Checks'
+description: 'Run Python linting, type checking, and tests with UV and Ruff'
+author: 'Layrz'
+
+inputs:
+  working-directory:
+    description: 'Directory to run Python commands in'
+    required: false
+    default: '.'
+  uv-cache-dependency-glob:
+    description: 'Dependency glob pattern for UV cache'
+    required: false
+    default: 'uv.lock'
+  run-type-check:
+    description: 'Whether to run type checking'
+    required: false
+    default: 'true'
+  run-tests:
+    description: 'Whether to run tests with coverage'
+    required: false
+    default: 'false'
+  coverage-library:
+    description: 'Library to measure coverage for'
+    required: false
+    default: '.'
+  upload-artifact:
+    description: 'Whether to upload coverage artifact'
+    required: false
+    default: 'true'
+  artifact-name:
+    description: 'Name for the coverage artifact'
+    required: false
+    default: 'python-coverage'
+
+outputs:
+  coverage-path:
+    description: 'Path to the coverage.json file'
+    value: ${{ steps.set-outputs.outputs.coverage-path }}
+  artifact-id:
+    description: 'ID of the uploaded artifact'
+    value: ${{ steps.upload-coverage.outputs.artifact-id }}
+  artifact-url:
+    description: 'URL of the uploaded artifact'
+    value: ${{ steps.upload-coverage.outputs.artifact-url }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup UV
+      uses: astral-sh/setup-uv@v7
+      with:
+        working-directory: ${{ inputs.working-directory }}
+        cache-python: true
+        enable-cache: true
+        cache-dependency-glob: ${{ inputs.uv-cache-dependency-glob }}
+
+    - name: Install dependencies
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: uv sync --frozen
+
+    - name: Run lint checks
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: uv run ruff check
+
+    - name: Run type checks
+      if: ${{ inputs.run-type-check == 'true' }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: uv run ty check
+
+    - name: Run tests with coverage
+      if: ${{ inputs.run-tests == 'true' && inputs.coverage-library != '' }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: uv run pytest ./tests/ --cov=${{ inputs.coverage-library }} --cov-report=term --cov-report=json:coverage.json
+
+    - name: Set outputs
+      id: set-outputs
+      if: ${{ inputs.run-tests == 'true' }}
+      shell: bash
+      run: |
+        COVERAGE_PATH="${{ inputs.working-directory }}/coverage.json"
+        echo "coverage-path=$COVERAGE_PATH" >> $GITHUB_OUTPUT
+
+    - name: Upload coverage artifact
+      id: upload-coverage
+      if: ${{ inputs.run-tests == 'true' && inputs.upload-artifact == 'true' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ inputs.working-directory }}/coverage.json
+        retention-days: 1

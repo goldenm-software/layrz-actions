@@ -1,0 +1,62 @@
+# Example: Using the docker-build composite action with custom build-args
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-amd64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      # Optional: Prepare build arguments dynamically
+      - name: Prepare build args
+        id: build-args
+        run: |
+          echo "app_version=$(git describe --tags --always)" >> $GITHUB_OUTPUT
+          echo "build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+
+      - uses: goldenm-software/layrz-actions/.github/actions/docker-build@v1
+        with:
+          platform: "linux/amd64"
+          registry: "ghcr.io"
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          # Custom build args (newline-separated)
+          build-args: |
+            APP_VERSION=${{ steps.build-args.outputs.app_version }}
+            BUILD_DATE=${{ steps.build-args.outputs.build_date }}
+            GIT_COMMIT=${{ github.sha }}
+            ENVIRONMENT=production
+          # Optional: Custom context and dockerfile
+          docker-context: "."
+          dockerfile: "Dockerfile"
+          # Note: Tags are auto-generated as sha-{sha}-{platform} and latest-{platform}
+
+  build-arm64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Prepare build args
+        id: build-args
+        run: |
+          echo "app_version=$(git describe --tags --always)" >> $GITHUB_OUTPUT
+          echo "build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+
+      - uses: goldenm-software/layrz-actions/.github/actions/docker-build@v1
+        with:
+          platform: "linux/arm64"
+          registry: "ghcr.io"
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          build-args: |
+            APP_VERSION=${{ steps.build-args.outputs.app_version }}
+            BUILD_DATE=${{ steps.build-args.outputs.build_date }}
+            GIT_COMMIT=${{ github.sha }}
+            ENVIRONMENT=production

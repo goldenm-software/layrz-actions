@@ -1,0 +1,75 @@
+name: 'Build Docker and push to GitHub Container Registry'
+description: 'Build Docker image for specific architecture and push to container registry'
+author: 'Layrz'
+
+inputs:
+  platform:
+    description: 'Target platform (e.g., linux/amd64, linux/arm64)'
+    required: true
+  arch:
+    description: 'Target architecture (e.g., amd64, arm64)'
+    required: true
+
+  registry:
+    description: 'Container registry URL (e.g., ghcr.io, 123456.dkr.ecr.us-east-1.amazonaws.com)'
+    required: true
+  username:
+    description: 'Registry username'
+    required: true
+  password:
+    description: 'Registry password'
+    required: true
+
+  build-args:
+    description: 'Build arguments (newline-separated, e.g., "ARG1=value1\nARG2=value2")'
+    required: false
+    default: ''
+  secrets:
+    description: 'Build secrets (newline-separated, e.g., "gh_token=value1\napi_key=value2")'
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Buildx
+      uses: docker/setup-buildx-action@v4
+
+    - name: Login to Registry
+      uses: docker/login-action@v4
+      with:
+        registry: ${{ inputs.registry }}
+        username: ${{ inputs.username }}
+        password: ${{ inputs.password }}
+
+    - name: Prepare build args
+      id: prepare-build-args
+      shell: bash
+      run: |
+        # Start with default build args
+        BUILD_ARGS="BUILDKIT_INLINE_CACHE=1"
+
+        # Add custom build args if provided
+        if [ -n "${{ inputs.build-args }}" ]; then
+          BUILD_ARGS="${BUILD_ARGS}"$'\n'"${{ inputs.build-args }}"
+        fi
+
+        # Output for use in next step
+        {
+          echo 'build-args<<BUILD_ARGS_EOF'
+          echo "$BUILD_ARGS"
+          echo 'BUILD_ARGS_EOF'
+        } >> $GITHUB_OUTPUT
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v7
+      with:
+        context: .
+        push: true
+        platforms: ${{ inputs.platform }}
+        tags: |
+          ${{ inputs.registry }}/${{ github.repository }}:sha-${{ github.sha }}-${{ inputs.arch }}
+          ${{ inputs.registry }}/${{ github.repository }}:latest-${{ inputs.arch }}
+        cache-from: type=registry,ref=${{ inputs.registry }}/${{ github.repository }}:latest-${{ inputs.arch }}
+        build-args: ${{ steps.prepare-build-args.outputs.build-args }}
+        secrets: ${{ inputs.secrets }}

@@ -1,0 +1,99 @@
+name: 'Dart/Flutter Checks'
+description: 'Run Flutter analyze and tests'
+author: 'Layrz'
+
+inputs:
+  working-directory:
+    description: 'Directory to run Flutter commands in'
+    required: false
+    default: '.'
+  flutter-version:
+    description: 'Flutter version to use'
+    required: false
+    default: '3.41.7'
+  run-checks:
+    description: 'Whether to run Flutter analyze'
+    required: false
+    default: 'true'
+  run-tests:
+    description: 'Whether to run tests'
+    required: false
+    default: 'true'
+  upload-artifact:
+    description: 'Whether to upload coverage artifact'
+    required: false
+    default: 'true'
+  artifact-name:
+    description: 'Name for the coverage artifact'
+    required: false
+    default: 'flutter-coverage'
+
+outputs:
+  coverage-path:
+    description: 'Path to the coverage/lcov.info file'
+    value: ${{ steps.set-outputs.outputs.coverage-path }}
+  test-results-path:
+    description: 'Path to the test-results.json file'
+    value: ${{ steps.set-outputs.outputs.test-results-path }}
+  artifact-id:
+    description: 'ID of the uploaded artifact'
+    value: ${{ steps.upload-coverage.outputs.artifact-id }}
+  artifact-url:
+    description: 'URL of the uploaded artifact'
+    value: ${{ steps.upload-coverage.outputs.artifact-url }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Flutter
+      uses: flutter-actions/setup-flutter@v4
+      with:
+        channel: stable
+        version: ${{ inputs.flutter-version }}
+        cache: true
+        cache-sdk: true
+        cache-key: ${{ runner.os }}-flutter-${{ hashFiles(format('{0}/pubspec.yaml', inputs.working-directory)) }}
+
+    - name: Install dependencies
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: flutter pub get
+
+    - name: Run checks
+      if: ${{ inputs.run-checks == 'true' }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: flutter analyze
+
+    - name: Run tests
+      if: ${{ inputs.run-tests == 'true' }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: flutter test --machine --coverage > test-results.json
+
+    - name: Publish test results
+      if: ${{ inputs.run-tests == 'true' }}
+      uses: dorny/test-reporter@v1
+      with:
+        name: Unit Tests
+        path: ${{ inputs.working-directory }}/test-results.json
+        reporter: flutter-json
+
+    - name: Set outputs
+      id: set-outputs
+      if: ${{ inputs.run-tests == 'true' }}
+      shell: bash
+      run: |
+        COVERAGE_PATH="${{ inputs.working-directory }}/lcov.info"
+        TEST_RESULTS_PATH="${{ inputs.working-directory }}/test-results.json"
+        echo "coverage-path=$COVERAGE_PATH" >> $GITHUB_OUTPUT
+        echo "test-results-path=$TEST_RESULTS_PATH" >> $GITHUB_OUTPUT
+
+    - name: Upload coverage artifact
+      id: upload-coverage
+      if: ${{ inputs.run-tests == 'true' && inputs.upload-artifact == 'true' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ inputs.working-directory }}/coverage/lcov.info
+        retention-days: 1

@@ -1,0 +1,91 @@
+name: 'Go Checks'
+description: 'Run Go linting and tests'
+author: 'Layrz'
+
+inputs:
+  working-directory:
+    description: 'Directory to run Go commands in'
+    required: false
+    default: '.'
+  go-version:
+    description: 'Go version to use'
+    required: false
+    default: '1.26.2'
+  go-cache-dependency-path:
+    description: 'Dependency path for Go cache'
+    required: false
+    default: 'go.sum'
+  golangci-lint-version:
+    description: 'Version of golangci-lint to use'
+    required: false
+    default: 'v2.11'
+  run-tests:
+    description: 'Whether to run tests'
+    required: false
+    default: 'true'
+  upload-artifact:
+    description: 'Whether to upload coverage artifact'
+    required: false
+    default: 'true'
+  artifact-name:
+    description: 'Name for the coverage artifact'
+    required: false
+    default: 'go-coverage'
+
+outputs:
+  coverage-out-path:
+    description: 'Path to the coverage.out file'
+    value: ${{ steps.set-outputs.outputs.coverage-out-path }}
+  coverage-summary-path:
+    description: 'Path to the coverage-summary.txt file'
+    value: ${{ steps.set-outputs.outputs.coverage-summary-path }}
+  artifact-id:
+    description: 'ID of the uploaded artifact'
+    value: ${{ steps.upload-coverage.outputs.artifact-id }}
+  artifact-url:
+    description: 'URL of the uploaded artifact'
+    value: ${{ steps.upload-coverage.outputs.artifact-url }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Go
+      uses: actions/setup-go@v6
+      with:
+        go-version: ${{ inputs.go-version }}
+        cache-dependency-path: ${{ inputs.working-directory }}/${{ inputs.go-cache-dependency-path }}
+
+    - name: Run linter
+      uses: golangci/golangci-lint-action@v8
+      with:
+        working-directory: ${{ inputs.working-directory }}
+        version: ${{ inputs.golangci-lint-version }}
+
+    - name: Run tests
+      if: ${{ inputs.run-tests == 'true' }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        go test -v -coverprofile=coverage.out ./...
+        go tool cover -func=coverage.out > coverage-summary.txt
+
+    - name: Set outputs
+      id: set-outputs
+      if: ${{ inputs.run-tests == 'true' }}
+      shell: bash
+      run: |
+        COVERAGE_OUT_PATH="${{ inputs.working-directory }}/coverage.out"
+        COVERAGE_SUMMARY_PATH="${{ inputs.working-directory }}/coverage-summary.txt"
+        echo "coverage-out-path=$COVERAGE_OUT_PATH" >> $GITHUB_OUTPUT
+        echo "coverage-summary-path=$COVERAGE_SUMMARY_PATH" >> $GITHUB_OUTPUT
+
+    - name: Upload coverage artifact
+      id: upload-coverage
+      if: ${{ inputs.run-tests == 'true' && inputs.upload-artifact == 'true' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: |
+          ${{ inputs.working-directory }}/coverage.out
+          ${{ inputs.working-directory }}/coverage-summary.txt
+        retention-days: 1
