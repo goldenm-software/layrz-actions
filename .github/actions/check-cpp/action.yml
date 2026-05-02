@@ -1,0 +1,113 @@
+name: 'C++ Checks'
+description: 'Build, test, and collect coverage for a CMake C++ project'
+author: 'Layrz'
+
+inputs:
+  working-directory:
+    description: 'Directory containing CMakeLists.txt'
+    required: false
+    default: '.'
+  cmake-version:
+    description: 'CMake version to install (empty = use runner default)'
+    required: false
+    default: ''
+  build-type:
+    description: 'CMake build type (Debug / Release / RelWithDebInfo)'
+    required: false
+    default: 'Debug'
+  run-tests:
+    description: 'Whether to run CTest after building'
+    required: false
+    default: 'true'
+  upload-artifact:
+    description: 'Whether to upload coverage artifact'
+    required: false
+    default: 'true'
+  artifact-name:
+    description: 'Name for the coverage artifact'
+    required: false
+    default: 'cpp-coverage'
+
+outputs:
+  coverage-path:
+    description: 'Path to the generated lcov.info coverage file'
+    value: ${{ steps.set-outputs.outputs.coverage-path }}
+  artifact-id:
+    description: 'ID of the uploaded artifact'
+    value: ${{ steps.upload-coverage.outputs.artifact-id }}
+  artifact-url:
+    description: 'URL of the uploaded artifact'
+    value: ${{ steps.upload-coverage.outputs.artifact-url }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install dependencies
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y lcov ninja-build
+
+    - name: Install CMake (optional override)
+      if: ${{ inputs.cmake-version != '' }}
+      uses: jwlawson/actions-setup-cmake@v2
+      with:
+        cmake-version: ${{ inputs.cmake-version }}
+
+    - name: Configure
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        cmake -S . -B build \
+          -DCMAKE_BUILD_TYPE=${{ inputs.build-type }} \
+          -DCMAKE_CXX_FLAGS="--coverage -fprofile-arcs -ftest-coverage" \
+          -DCMAKE_EXE_LINKER_FLAGS="--coverage" \
+          -DLAYRZ_PROTOCOL_BUILD_TESTS=ON \
+          -DLAYRZ_PROTOCOL_BUILD_NET=OFF \
+          -G Ninja
+
+    - name: Build
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: cmake --build build
+
+    - name: Run tests
+      if: ${{ inputs.run-tests == 'true' }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: ctest --test-dir build --output-on-failure
+
+    - name: Collect coverage
+      if: ${{ inputs.run-tests == 'true' }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        lcov --capture \
+          --directory build \
+          --output-file build/coverage.info \
+          --ignore-errors mismatch \
+          --no-external
+        lcov --remove build/coverage.info \
+          '*/build/_deps/*' \
+          '*/tests/*' \
+          --output-file build/coverage.info \
+          --ignore-errors unused
+        lcov --list build/coverage.info || true
+        cp build/coverage.info lcov.info
+
+    - name: Set outputs
+      id: set-outputs
+      if: ${{ inputs.run-tests == 'true' }}
+      shell: bash
+      run: |
+        COVERAGE_PATH="${{ inputs.working-directory }}/lcov.info"
+        echo "coverage-path=$COVERAGE_PATH" >> $GITHUB_OUTPUT
+
+    - name: Upload coverage artifact
+      id: upload-coverage
+      if: ${{ inputs.run-tests == 'true' && inputs.upload-artifact == 'true' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ inputs.working-directory }}/lcov.info
+        retention-days: 1
