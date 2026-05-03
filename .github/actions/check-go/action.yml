@@ -43,6 +43,12 @@ outputs:
   coverage-summary-path:
     description: 'Path to the coverage-summary.txt file'
     value: ${{ steps.set-outputs.outputs.coverage-summary-path }}
+  lcov-path:
+    description: 'Path to the lcov.info file'
+    value: ${{ steps.set-outputs.outputs.lcov-path }}
+  test-results-path:
+    description: 'Path to the test-results.json file'
+    value: ${{ steps.set-outputs.outputs.test-results-path }}
   artifact-id:
     description: 'ID of the uploaded artifact'
     value: ${{ steps.upload-coverage.outputs.artifact-id }}
@@ -76,11 +82,21 @@ runs:
           for pattern in $(echo "$EXCLUDE" | tr ',' ' '); do
             PKGS=$(echo "$PKGS" | grep -v "$pattern")
           done
-          go test -v -coverprofile=coverage.out $PKGS
+          go test -v -json -coverprofile=coverage.out $PKGS > test-results.json
         else
-          go test -v -coverprofile=coverage.out ./...
+          go test -v -json -coverprofile=coverage.out ./... > test-results.json
         fi
         go tool cover -func=coverage.out > coverage-summary.txt
+        go install github.com/jandelgado/gcov2lcov@latest
+        gcov2lcov -infile=coverage.out -outfile=lcov.info
+
+    - name: Publish test results
+      if: ${{ inputs.run-tests == 'true' }}
+      uses: dorny/test-reporter@v2
+      with:
+        name: Unit Tests
+        path: ${{ inputs.working-directory }}/test-results.json
+        reporter: go-test
 
     - name: Set outputs
       id: set-outputs
@@ -89,8 +105,12 @@ runs:
       run: |
         COVERAGE_OUT_PATH="${{ inputs.working-directory }}/coverage.out"
         COVERAGE_SUMMARY_PATH="${{ inputs.working-directory }}/coverage-summary.txt"
+        LCOV_PATH="${{ inputs.working-directory }}/lcov.info"
+        TEST_RESULTS_PATH="${{ inputs.working-directory }}/test-results.json"
         echo "coverage-out-path=$COVERAGE_OUT_PATH" >> $GITHUB_OUTPUT
         echo "coverage-summary-path=$COVERAGE_SUMMARY_PATH" >> $GITHUB_OUTPUT
+        echo "lcov-path=$LCOV_PATH" >> $GITHUB_OUTPUT
+        echo "test-results-path=$TEST_RESULTS_PATH" >> $GITHUB_OUTPUT
 
     - name: Upload coverage artifact
       id: upload-coverage
@@ -101,4 +121,6 @@ runs:
         path: |
           ${{ inputs.working-directory }}/coverage.out
           ${{ inputs.working-directory }}/coverage-summary.txt
+          ${{ inputs.working-directory }}/lcov.info
+          ${{ inputs.working-directory }}/test-results.json
         retention-days: 1

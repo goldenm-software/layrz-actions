@@ -20,13 +20,13 @@ inputs:
     required: false
     default: 'false'
   python-coverage-path:
-    description: 'Path to Python coverage.json file (must be downloaded first)'
+    description: 'Path to Python lcov.info file (must be downloaded first)'
     required: false
-    default: 'python-coverage/coverage.json'
+    default: 'python-coverage/lcov.info'
   go-coverage-path:
-    description: 'Path to Go coverage-summary.txt file (must be downloaded first)'
+    description: 'Path to Go lcov.info file (must be downloaded first)'
     required: false
-    default: 'go-coverage/coverage-summary.txt'
+    default: 'go-coverage/lcov.info'
   dart-coverage-path:
     description: 'Path to Dart lcov.info file (must be downloaded first)'
     required: false
@@ -43,10 +43,52 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Install lcov (for Dart/C++)
-      if: ${{ inputs.enable-dart == 'true' || inputs.enable-cpp == 'true' }}
+    - name: Install lcov
+      if: ${{ inputs.enable-dart == 'true' || inputs.enable-cpp == 'true' || inputs.enable-go == 'true' || inputs.enable-python == 'true' }}
       shell: bash
       run: sudo apt-get update && sudo apt-get install -y lcov
+
+    - name: Parse Python coverage
+      if: ${{ inputs.enable-python == 'true' }}
+      id: python-coverage
+      shell: bash
+      run: |
+        if [ -f "${{ inputs.python-coverage-path }}" ]; then
+          COVERAGE_SUMMARY=$(lcov --summary "${{ inputs.python-coverage-path }}" 2>&1 || true)
+          COVERAGE_PCT=$(echo "$COVERAGE_SUMMARY" | grep -oP 'lines\.*: \K[\d.]+(?=%)' || true)
+          COVERAGE_PCT=${COVERAGE_PCT:-0.0}
+          LINES_HIT=$(grep -c '^DA:[^,]*,[^0]' "${{ inputs.python-coverage-path }}" || true)
+          LINES_HIT=${LINES_HIT:-0}
+          LINES_TOTAL=$(grep -c '^DA:' "${{ inputs.python-coverage-path }}" || true)
+          LINES_TOTAL=${LINES_TOTAL:-0}
+          echo "coverage_pct=$COVERAGE_PCT" >> $GITHUB_OUTPUT
+          echo "lines_hit=$LINES_HIT" >> $GITHUB_OUTPUT
+          echo "lines_total=$LINES_TOTAL" >> $GITHUB_OUTPUT
+          echo "available=true" >> $GITHUB_OUTPUT
+        else
+          echo "available=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Parse Go coverage
+      if: ${{ inputs.enable-go == 'true' }}
+      id: go-coverage
+      shell: bash
+      run: |
+        if [ -f "${{ inputs.go-coverage-path }}" ]; then
+          COVERAGE_SUMMARY=$(lcov --summary "${{ inputs.go-coverage-path }}" 2>&1 || true)
+          COVERAGE_PCT=$(echo "$COVERAGE_SUMMARY" | grep -oP 'lines\.*: \K[\d.]+(?=%)' || true)
+          COVERAGE_PCT=${COVERAGE_PCT:-0.0}
+          LINES_HIT=$(grep -c '^DA:[^,]*,[^0]' "${{ inputs.go-coverage-path }}" || true)
+          LINES_HIT=${LINES_HIT:-0}
+          LINES_TOTAL=$(grep -c '^DA:' "${{ inputs.go-coverage-path }}" || true)
+          LINES_TOTAL=${LINES_TOTAL:-0}
+          echo "coverage_pct=$COVERAGE_PCT" >> $GITHUB_OUTPUT
+          echo "lines_hit=$LINES_HIT" >> $GITHUB_OUTPUT
+          echo "lines_total=$LINES_TOTAL" >> $GITHUB_OUTPUT
+          echo "available=true" >> $GITHUB_OUTPUT
+        else
+          echo "available=false" >> $GITHUB_OUTPUT
+        fi
 
     - name: Parse Dart coverage
       if: ${{ inputs.enable-dart == 'true' }}
@@ -101,35 +143,29 @@ runs:
 
           // Python coverage
           if (${{ inputs.enable-python }}) {
-            try {
-              const raw = fs.readFileSync('${{ inputs.python-coverage-path }}', 'utf8');
-              const data = JSON.parse(raw);
-              const totals = data.totals;
-              const pct = totals.percent_covered.toFixed(1);
-              const covered = totals.covered_lines;
-              const missing = totals.missing_lines;
-              const total = covered + missing;
-
-              sections.push(`### 🐍 Python\n\n| Metric | Value |\n|--------|-------|\n| **Coverage** | **${pct}%** |\n| Lines covered | ${covered} / ${total} |\n| Lines missing | ${missing} |`);
-            } catch (e) {
+            const available = '${{ steps.python-coverage.outputs.available }}' === 'true';
+            if (available) {
+              const coveragePct = '${{ steps.python-coverage.outputs.coverage_pct }}';
+              const linesHit = '${{ steps.python-coverage.outputs.lines_hit }}';
+              const linesTotal = '${{ steps.python-coverage.outputs.lines_total }}';
+              const linesMissing = parseInt(linesTotal) - parseInt(linesHit);
+              sections.push(`### 🐍 Python\n\n| Metric | Value |\n|--------|-------|\n| **Coverage** | **${coveragePct}%** |\n| Lines covered | ${linesHit} / ${linesTotal} |\n| Lines missing | ${linesMissing} |`);
+            } else {
               sections.push(`### 🐍 Python\n\n> No coverage data available.`);
-              core.warning(`Failed to parse Python coverage: ${e.message}`);
             }
           }
 
           // Go coverage
           if (${{ inputs.enable-go }}) {
-            try {
-              const raw = fs.readFileSync('${{ inputs.go-coverage-path }}', 'utf8');
-              const lines = raw.trim().split('\n');
-              const totalLine = lines[lines.length - 1];
-              const match = totalLine.match(/([\d.]+)%/);
-              const goPct = match ? match[1] : 'N/A';
-
-              sections.push(`### 🔷 Go\n\n| Metric | Value |\n|--------|-------|\n| **Coverage** | **${goPct}%** |\n| Functions measured | ${lines.length - 1} |`);
-            } catch (e) {
+            const available = '${{ steps.go-coverage.outputs.available }}' === 'true';
+            if (available) {
+              const coveragePct = '${{ steps.go-coverage.outputs.coverage_pct }}';
+              const linesHit = '${{ steps.go-coverage.outputs.lines_hit }}';
+              const linesTotal = '${{ steps.go-coverage.outputs.lines_total }}';
+              const linesMissing = parseInt(linesTotal) - parseInt(linesHit);
+              sections.push(`### 🔷 Go\n\n| Metric | Value |\n|--------|-------|\n| **Coverage** | **${coveragePct}%** |\n| Lines covered | ${linesHit} / ${linesTotal} |\n| Lines missing | ${linesMissing} |`);
+            } else {
               sections.push(`### 🔷 Go\n\n> No coverage data available.`);
-              core.warning(`Failed to parse Go coverage: ${e.message}`);
             }
           }
 

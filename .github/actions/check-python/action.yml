@@ -36,6 +36,12 @@ outputs:
   coverage-path:
     description: 'Path to the coverage.json file'
     value: ${{ steps.set-outputs.outputs.coverage-path }}
+  lcov-path:
+    description: 'Path to the lcov.info file'
+    value: ${{ steps.set-outputs.outputs.lcov-path }}
+  test-results-path:
+    description: 'Path to the test-results.xml file'
+    value: ${{ steps.set-outputs.outputs.test-results-path }}
   artifact-id:
     description: 'ID of the uploaded artifact'
     value: ${{ steps.upload-coverage.outputs.artifact-id }}
@@ -74,7 +80,15 @@ runs:
       if: ${{ inputs.run-tests == 'true' && inputs.coverage-library != '' }}
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      run: uv run pytest ./tests/ --cov=${{ inputs.coverage-library }} --cov-report=term --cov-report=json:coverage.json
+      run: uv run pytest ./tests/ --cov=${{ inputs.coverage-library }} --cov-report=term --cov-report=json:coverage.json --cov-report=lcov:lcov.info --junit-xml=test-results.xml
+
+    - name: Publish test results
+      if: ${{ inputs.run-tests == 'true' }}
+      uses: dorny/test-reporter@v2
+      with:
+        name: Unit Tests
+        path: ${{ inputs.working-directory }}/test-results.xml
+        reporter: java-junit
 
     - name: Set outputs
       id: set-outputs
@@ -82,7 +96,11 @@ runs:
       shell: bash
       run: |
         COVERAGE_PATH="${{ inputs.working-directory }}/coverage.json"
+        LCOV_PATH="${{ inputs.working-directory }}/lcov.info"
+        TEST_RESULTS_PATH="${{ inputs.working-directory }}/test-results.xml"
         echo "coverage-path=$COVERAGE_PATH" >> $GITHUB_OUTPUT
+        echo "lcov-path=$LCOV_PATH" >> $GITHUB_OUTPUT
+        echo "test-results-path=$TEST_RESULTS_PATH" >> $GITHUB_OUTPUT
 
     - name: Upload coverage artifact
       id: upload-coverage
@@ -90,5 +108,8 @@ runs:
       uses: actions/upload-artifact@v7
       with:
         name: ${{ inputs.artifact-name }}
-        path: ${{ inputs.working-directory }}/coverage.json
+        path: |
+          ${{ inputs.working-directory }}/coverage.json
+          ${{ inputs.working-directory }}/lcov.info
+          ${{ inputs.working-directory }}/test-results.xml
         retention-days: 1
