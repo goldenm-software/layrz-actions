@@ -23,6 +23,10 @@ inputs:
     description: 'Whether to run tests'
     required: false
     default: 'true'
+  exclude-packages:
+    description: 'Comma separated list of package path substrings to exclude from coverage (e.g. /cmd/,/examples)'
+    required: false
+    default: '/examples'
   upload-artifact:
     description: 'Whether to upload coverage artifact'
     required: false
@@ -66,7 +70,16 @@ runs:
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       run: |
-        go test -v -coverprofile=coverage.out ./...
+        EXCLUDE="${{ inputs.exclude-packages }}"
+        if [ -n "$EXCLUDE" ]; then
+          PKGS=$(go list ./... | tr ',' '\n')
+          for pattern in $(echo "$EXCLUDE" | tr ',' ' '); do
+            PKGS=$(echo "$PKGS" | grep -v "$pattern")
+          done
+          go test -v -coverprofile=coverage.out $PKGS
+        else
+          go test -v -coverprofile=coverage.out ./...
+        fi
         go tool cover -func=coverage.out > coverage-summary.txt
 
     - name: Set outputs
