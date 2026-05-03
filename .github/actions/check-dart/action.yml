@@ -73,7 +73,7 @@ runs:
 
     - name: Publish test results
       if: ${{ inputs.run-tests == 'true' }}
-      uses: dorny/test-reporter@v2
+      uses: dorny/test-reporter@v3
       with:
         name: Unit Tests
         path: ${{ inputs.working-directory }}/test-results.json
