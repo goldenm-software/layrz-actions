@@ -96,7 +96,7 @@ runs:
       with:
         name: Unit Tests
         path: ${{ inputs.working-directory }}/test-results.json
-        reporter: go-test
+        reporter: golang-json
 
     - name: Set outputs
       id: set-outputs
