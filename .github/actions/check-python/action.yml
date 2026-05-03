@@ -88,7 +88,7 @@ runs:
       with:
         name: Unit Tests
         path: ${{ inputs.working-directory }}/test-results.xml
-        reporter: java-junit
+        reporter: python-xunit
 
     - name: Set outputs
       id: set-outputs
