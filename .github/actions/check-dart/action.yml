@@ -29,9 +29,9 @@ inputs:
     default: 'flutter-coverage'
 
 outputs:
-  coverage-path:
-    description: 'Path to the coverage/lcov.info file'
-    value: ${{ steps.set-outputs.outputs.coverage-path }}
+  lcov-path:
+    description: 'Path to the lcov.info file'
+    value: ${{ steps.set-outputs.outputs.lcov-path }}
   test-results-path:
     description: 'Path to the test-results.json file'
     value: ${{ steps.set-outputs.outputs.test-results-path }}
@@ -84,9 +84,9 @@ runs:
       if: ${{ inputs.run-tests == 'true' }}
       shell: bash
       run: |
-        COVERAGE_PATH="${{ inputs.working-directory }}/lcov.info"
+        LCOV_PATH="${{ inputs.working-directory }}/coverage/lcov.info"
         TEST_RESULTS_PATH="${{ inputs.working-directory }}/test-results.json"
-        echo "coverage-path=$COVERAGE_PATH" >> $GITHUB_OUTPUT
+        echo "lcov-path=$LCOV_PATH" >> $GITHUB_OUTPUT
         echo "test-results-path=$TEST_RESULTS_PATH" >> $GITHUB_OUTPUT
 
     - name: Upload coverage artifact
