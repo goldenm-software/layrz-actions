@@ -48,7 +48,7 @@ runs:
         ARCH=$(echo "$RUNNER_ARCH" | tr '[:upper:]' '[:lower:]')
         # GitHub calls it X64/ARM64; normalize to amd64/arm64
         [ "$ARCH" = "x64" ] && ARCH="amd64"
-        echo "path=${{ github.action_path }}/../../../../tools/bin/changelog-${OS}-${ARCH}" >> $GITHUB_OUTPUT
+        echo "path=$GITHUB_ACTION_PATH/bin/changelog-${OS}-${ARCH}" >> $GITHUB_OUTPUT
 
     - name: Run changelog
       id: run

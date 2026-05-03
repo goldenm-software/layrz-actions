@@ -1,6 +1,5 @@
 .PHONY: help push push-minor push-major current-version build-tools clean-tools
 
-TOOLS := changelog coverage-comment
 PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64
 
 # Default target - show help
@@ -34,18 +33,18 @@ push-minor:
 push-major:
 	@./scripts/version-push-major.sh
 
-# Build Go tool binaries for all platforms
+# Build Go tool binaries for all platforms into each action's bin/ directory
 build-tools:
-	@mkdir -p tools/bin
+	@mkdir -p .github/actions/changelog/bin .github/actions/coverage-comment/bin
 	@$(foreach platform,$(PLATFORMS), \
 		$(eval OS=$(word 1,$(subst /, ,$(platform)))) \
 		$(eval ARCH=$(word 2,$(subst /, ,$(platform)))) \
-		$(foreach tool,$(TOOLS), \
-			echo "Building $(tool)-$(OS)-$(ARCH)..." && \
-			GOOS=$(OS) GOARCH=$(ARCH) go build -C tools -o bin/$(tool)-$(OS)-$(ARCH) ./$(tool) && \
-		) \
+		echo "Building changelog-$(OS)-$(ARCH)..." && \
+		GOOS=$(OS) GOARCH=$(ARCH) go build -C tools -o ../.github/actions/changelog/bin/changelog-$(OS)-$(ARCH) ./changelog && \
+		echo "Building coverage-comment-$(OS)-$(ARCH)..." && \
+		GOOS=$(OS) GOARCH=$(ARCH) go build -C tools -o ../.github/actions/coverage-comment/bin/coverage-comment-$(OS)-$(ARCH) ./coverage-comment && \
 	) true
 
 # Remove built binaries
 clean-tools:
-	@rm -rf tools/bin
+	@rm -rf .github/actions/changelog/bin .github/actions/coverage-comment/bin
