@@ -18,7 +18,7 @@ jobs:
         with:
           run-tests: true
           coverage-library: "myapp"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: python-coverage
@@ -32,7 +32,7 @@ jobs:
       - uses: goldenm-software/layrz-actions/.github/actions/check-go@v1
         with:
           run-tests: true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: go-coverage
