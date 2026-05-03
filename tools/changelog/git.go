@@ -83,9 +83,9 @@ func gitDiffStats(fromRef, toRef string) (files, insertions, deletions int) {
 }
 
 func gitPreviousTag(currentTag string) string {
-	out, err := exec.Command("git", "tag", "--sort=-version:refname").Output()
+	out, err := exec.Command("git", "tag", "--sort=-version:refname", "--list", "v*").Output()
 	if err != nil {
-		return ""
+		return "main"
 	}
 	tags := strings.Split(strings.TrimSpace(string(out)), "\n")
 	for i, t := range tags {
