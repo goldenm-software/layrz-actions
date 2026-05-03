@@ -86,6 +86,5 @@ func gitPreviousTag(currentTag string) string {
 			return tags[i+1]
 		}
 	}
-	out2, _ := exec.Command("git", "rev-list", "--max-parents=0", "HEAD").Output()
-	return strings.TrimSpace(string(out2))
+	return "main"
 }
