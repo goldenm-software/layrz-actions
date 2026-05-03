@@ -1,4 +1,7 @@
-.PHONY: help push push-minor push-major current-version
+.PHONY: help push push-minor push-major current-version build-tools clean-tools
+
+TOOLS := changelog coverage-comment
+PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64
 
 # Default target - show help
 help:
@@ -30,3 +33,19 @@ push-minor:
 # Create a new major version and push
 push-major:
 	@./scripts/version-push-major.sh
+
+# Build Go tool binaries for all platforms
+build-tools:
+	@mkdir -p tools/bin
+	@$(foreach platform,$(PLATFORMS), \
+		$(eval OS=$(word 1,$(subst /, ,$(platform)))) \
+		$(eval ARCH=$(word 2,$(subst /, ,$(platform)))) \
+		$(foreach tool,$(TOOLS), \
+			echo "Building $(tool)-$(OS)-$(ARCH)..." && \
+			GOOS=$(OS) GOARCH=$(ARCH) go build -C tools -o bin/$(tool)-$(OS)-$(ARCH) ./$(tool) && \
+		) \
+	) true
+
+# Remove built binaries
+clean-tools:
+	@rm -rf tools/bin

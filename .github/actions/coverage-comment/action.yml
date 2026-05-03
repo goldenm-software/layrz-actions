@@ -43,198 +43,29 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Install lcov
-      if: ${{ inputs.enable-dart == 'true' || inputs.enable-cpp == 'true' || inputs.enable-go == 'true' || inputs.enable-python == 'true' }}
-      shell: bash
-      run: sudo apt-get update && sudo apt-get install -y lcov
-
-    - name: Parse Python coverage
-      if: ${{ inputs.enable-python == 'true' }}
-      id: python-coverage
+    - name: Select binary
+      id: bin
       shell: bash
       run: |
-        if [ -f "${{ inputs.python-coverage-path }}" ]; then
-          COVERAGE_SUMMARY=$(lcov --summary "${{ inputs.python-coverage-path }}" 2>&1 || true)
-          COVERAGE_PCT=$(echo "$COVERAGE_SUMMARY" | grep -oP 'lines\.*: \K[\d.]+(?=%)' || true)
-          COVERAGE_PCT=${COVERAGE_PCT:-0.0}
-          LINES_HIT=$(grep -c '^DA:[^,]*,[^0]' "${{ inputs.python-coverage-path }}" || true)
-          LINES_HIT=${LINES_HIT:-0}
-          LINES_TOTAL=$(grep -c '^DA:' "${{ inputs.python-coverage-path }}" || true)
-          LINES_TOTAL=${LINES_TOTAL:-0}
-          echo "coverage_pct=$COVERAGE_PCT" >> $GITHUB_OUTPUT
-          echo "lines_hit=$LINES_HIT" >> $GITHUB_OUTPUT
-          echo "lines_total=$LINES_TOTAL" >> $GITHUB_OUTPUT
-          echo "available=true" >> $GITHUB_OUTPUT
-        else
-          echo "available=false" >> $GITHUB_OUTPUT
-        fi
+        OS=$(echo "$RUNNER_OS" | tr '[:upper:]' '[:lower:]')
+        ARCH=$(echo "$RUNNER_ARCH" | tr '[:upper:]' '[:lower:]')
+        [ "$ARCH" = "x64" ] && ARCH="amd64"
+        echo "path=${{ github.action_path }}/../../../../tools/bin/coverage-comment-${OS}-${ARCH}" >> $GITHUB_OUTPUT
 
-    - name: Parse Go coverage
-      if: ${{ inputs.enable-go == 'true' }}
-      id: go-coverage
+    - name: Run coverage-comment
       shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token || github.token }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        ENABLE_PYTHON: ${{ inputs.enable-python }}
+        PYTHON_LCOV_PATH: ${{ inputs.python-coverage-path }}
+        ENABLE_GO: ${{ inputs.enable-go }}
+        GO_LCOV_PATH: ${{ inputs.go-coverage-path }}
+        ENABLE_DART: ${{ inputs.enable-dart }}
+        DART_LCOV_PATH: ${{ inputs.dart-coverage-path }}
+        ENABLE_CPP: ${{ inputs.enable-cpp }}
+        CPP_LCOV_PATH: ${{ inputs.cpp-coverage-path }}
       run: |
-        if [ -f "${{ inputs.go-coverage-path }}" ]; then
-          COVERAGE_SUMMARY=$(lcov --summary "${{ inputs.go-coverage-path }}" 2>&1 || true)
-          COVERAGE_PCT=$(echo "$COVERAGE_SUMMARY" | grep -oP 'lines\.*: \K[\d.]+(?=%)' || true)
-          COVERAGE_PCT=${COVERAGE_PCT:-0.0}
-          LINES_HIT=$(grep -c '^DA:[^,]*,[^0]' "${{ inputs.go-coverage-path }}" || true)
-          LINES_HIT=${LINES_HIT:-0}
-          LINES_TOTAL=$(grep -c '^DA:' "${{ inputs.go-coverage-path }}" || true)
-          LINES_TOTAL=${LINES_TOTAL:-0}
-          echo "coverage_pct=$COVERAGE_PCT" >> $GITHUB_OUTPUT
-          echo "lines_hit=$LINES_HIT" >> $GITHUB_OUTPUT
-          echo "lines_total=$LINES_TOTAL" >> $GITHUB_OUTPUT
-          echo "available=true" >> $GITHUB_OUTPUT
-        else
-          echo "available=false" >> $GITHUB_OUTPUT
-        fi
-
-    - name: Parse Dart coverage
-      if: ${{ inputs.enable-dart == 'true' }}
-      id: dart-coverage
-      shell: bash
-      run: |
-        if [ -f "${{ inputs.dart-coverage-path }}" ]; then
-          COVERAGE_SUMMARY=$(lcov --summary "${{ inputs.dart-coverage-path }}" 2>&1 || true)
-          COVERAGE_PCT=$(echo "$COVERAGE_SUMMARY" | grep -oP 'lines\.*: \K[\d.]+(?=%)' || true)
-          COVERAGE_PCT=${COVERAGE_PCT:-0.0}
-          LINES_HIT=$(grep -c '^DA:[^,]*,[^0]' "${{ inputs.dart-coverage-path }}" || true)
-          LINES_HIT=${LINES_HIT:-0}
-          LINES_TOTAL=$(grep -c '^DA:' "${{ inputs.dart-coverage-path }}" || true)
-          LINES_TOTAL=${LINES_TOTAL:-0}
-          echo "coverage_pct=$COVERAGE_PCT" >> $GITHUB_OUTPUT
-          echo "lines_hit=$LINES_HIT" >> $GITHUB_OUTPUT
-          echo "lines_total=$LINES_TOTAL" >> $GITHUB_OUTPUT
-          echo "available=true" >> $GITHUB_OUTPUT
-        else
-          echo "available=false" >> $GITHUB_OUTPUT
-        fi
-
-    - name: Parse C++ coverage
-      if: ${{ inputs.enable-cpp == 'true' }}
-      id: cpp-coverage
-      shell: bash
-      run: |
-        if [ -f "${{ inputs.cpp-coverage-path }}" ]; then
-          COVERAGE_SUMMARY=$(lcov --summary "${{ inputs.cpp-coverage-path }}" 2>&1 || true)
-          COVERAGE_PCT=$(echo "$COVERAGE_SUMMARY" | grep -oP 'lines\.*: \K[\d.]+(?=%)' || true)
-          COVERAGE_PCT=${COVERAGE_PCT:-0.0}
-          LINES_HIT=$(grep -c '^DA:[^,]*,[^0]' "${{ inputs.cpp-coverage-path }}" || true)
-          LINES_HIT=${LINES_HIT:-0}
-          LINES_TOTAL=$(grep -c '^DA:' "${{ inputs.cpp-coverage-path }}" || true)
-          LINES_TOTAL=${LINES_TOTAL:-0}
-          echo "coverage_pct=$COVERAGE_PCT" >> $GITHUB_OUTPUT
-          echo "lines_hit=$LINES_HIT" >> $GITHUB_OUTPUT
-          echo "lines_total=$LINES_TOTAL" >> $GITHUB_OUTPUT
-          echo "available=true" >> $GITHUB_OUTPUT
-        else
-          echo "available=false" >> $GITHUB_OUTPUT
-        fi
-
-    - name: Post coverage comment
-      if: ${{ github.event_name == 'pull_request' }}
-      uses: actions/github-script@v9
-      with:
-        github-token: ${{ inputs.github-token }}
-        script: |
-          const fs = require('fs');
-          const sections = [];
-
-          // Python coverage
-          if (${{ inputs.enable-python }}) {
-            const available = '${{ steps.python-coverage.outputs.available }}' === 'true';
-            if (available) {
-              const coveragePct = '${{ steps.python-coverage.outputs.coverage_pct }}';
-              const linesHit = '${{ steps.python-coverage.outputs.lines_hit }}';
-              const linesTotal = '${{ steps.python-coverage.outputs.lines_total }}';
-              const linesMissing = parseInt(linesTotal) - parseInt(linesHit);
-              sections.push(`### 🐍 Python\n\n| Metric | Value |\n|--------|-------|\n| **Coverage** | **${coveragePct}%** |\n| Lines covered | ${linesHit} / ${linesTotal} |\n| Lines missing | ${linesMissing} |`);
-            } else {
-              sections.push(`### 🐍 Python\n\n> No coverage data available.`);
-            }
-          }
-
-          // Go coverage
-          if (${{ inputs.enable-go }}) {
-            const available = '${{ steps.go-coverage.outputs.available }}' === 'true';
-            if (available) {
-              const coveragePct = '${{ steps.go-coverage.outputs.coverage_pct }}';
-              const linesHit = '${{ steps.go-coverage.outputs.lines_hit }}';
-              const linesTotal = '${{ steps.go-coverage.outputs.lines_total }}';
-              const linesMissing = parseInt(linesTotal) - parseInt(linesHit);
-              sections.push(`### 🔷 Go\n\n| Metric | Value |\n|--------|-------|\n| **Coverage** | **${coveragePct}%** |\n| Lines covered | ${linesHit} / ${linesTotal} |\n| Lines missing | ${linesMissing} |`);
-            } else {
-              sections.push(`### 🔷 Go\n\n> No coverage data available.`);
-            }
-          }
-
-          // Dart coverage
-          if (${{ inputs.enable-dart }}) {
-            const available = '${{ steps.dart-coverage.outputs.available }}' === 'true';
-            if (available) {
-              const coveragePct = '${{ steps.dart-coverage.outputs.coverage_pct }}';
-              const linesHit = '${{ steps.dart-coverage.outputs.lines_hit }}';
-              const linesTotal = '${{ steps.dart-coverage.outputs.lines_total }}';
-              const linesMissing = parseInt(linesTotal) - parseInt(linesHit);
-
-              sections.push(`### 🎯 Dart/Flutter\n\n| Metric | Value |\n|--------|-------|\n| **Coverage** | **${coveragePct}%** |\n| Lines covered | ${linesHit} / ${linesTotal} |\n| Lines missing | ${linesMissing} |`);
-            } else {
-              sections.push(`### 🎯 Dart/Flutter\n\n> No coverage data available.`);
-            }
-          }
-
-          // C++ coverage
-          if (${{ inputs.enable-cpp }}) {
-            const available = '${{ steps.cpp-coverage.outputs.available }}' === 'true';
-            if (available) {
-              const coveragePct = '${{ steps.cpp-coverage.outputs.coverage_pct }}';
-              const linesHit = '${{ steps.cpp-coverage.outputs.lines_hit }}';
-              const linesTotal = '${{ steps.cpp-coverage.outputs.lines_total }}';
-              const linesMissing = parseInt(linesTotal) - parseInt(linesHit);
-
-              sections.push(`### ⚙️ C++\n\n| Metric | Value |\n|--------|-------|\n| **Coverage** | **${coveragePct}%** |\n| Lines covered | ${linesHit} / ${linesTotal} |\n| Lines missing | ${linesMissing} |`);
-            } else {
-              sections.push(`### ⚙️ C++\n\n> No coverage data available.`);
-            }
-          }
-
-          // Build final comment
-          const body = [
-            '## 📊 Test Coverage Report',
-            '',
-            ...sections,
-            '',
-            '---',
-            `<sub>🤖 Generated by coverage workflow</sub>`,
-          ].join('\n');
-
-          // Find and update existing comment
-          const { data: comments } = await github.rest.issues.listComments({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            issue_number: context.issue.number,
-          });
-
-          const marker = '## 📊 Test Coverage Report';
-          const existing = comments.find(c =>
-            c.user.type === 'Bot' && c.body.includes(marker)
-          );
-
-          if (existing) {
-            await github.rest.issues.updateComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              comment_id: existing.id,
-              body,
-            });
-            core.info(`Updated existing coverage comment #${existing.id}`);
-          } else {
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body,
-            });
-            core.info('Created new coverage comment');
-          }
+        chmod +x "${{ steps.bin.outputs.path }}"
+        "${{ steps.bin.outputs.path }}"
