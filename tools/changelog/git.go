@@ -8,7 +8,7 @@ import (
 )
 
 func gitLog(fromRef, toRef string) ([]Commit, error) {
-	// Ensure both refs are available locally (needed on PR merge-commit checkouts)
+	// Ensure both refs are available locally
 	exec.Command("git", "fetch", "--depth=100", "origin", fromRef).Run()
 	exec.Command("git", "fetch", "--depth=100", "origin", toRef).Run()
 
@@ -93,5 +93,5 @@ func gitPreviousTag(currentTag string) string {
 			return tags[i+1]
 		}
 	}
-	return "main"
+	return "origin/main~1"
 }
