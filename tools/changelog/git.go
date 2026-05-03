@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 )
@@ -12,7 +11,6 @@ func gitLog(fromRef, toRef string) ([]Commit, error) {
 	exec.Command("git", "fetch", "--depth=100", "origin", fromRef).Run()
 	exec.Command("git", "fetch", "--depth=100", "origin", toRef).Run()
 
-	fmt.Fprintf(os.Stderr, "debug: git log %s..%s\n", fromRef, toRef)
 	out, err := exec.Command("git", "log",
 		fmt.Sprintf("%s..%s", fromRef, toRef),
 		"--pretty=format:%h%n%s%n%b%n---COMMIT---",
@@ -21,7 +19,6 @@ func gitLog(fromRef, toRef string) ([]Commit, error) {
 	if err != nil {
 		return nil, fmt.Errorf("git log: %w", err)
 	}
-	fmt.Fprintf(os.Stderr, "debug: git log output length: %d\n", len(out))
 
 	raw := string(out)
 	if strings.TrimSpace(raw) == "" {
