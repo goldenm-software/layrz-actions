@@ -35,7 +35,7 @@ push-major:
 
 # Build Go tool binaries for all platforms into each action's bin/ directory
 build-tools:
-	@mkdir -p .github/actions/changelog/bin .github/actions/coverage-comment/bin
+	@mkdir -p .github/actions/changelog/bin .github/actions/coverage-comment/bin .github/actions/coverage-check/bin
 	@$(foreach platform,$(PLATFORMS), \
 		$(eval OS=$(word 1,$(subst /, ,$(platform)))) \
 		$(eval ARCH=$(word 2,$(subst /, ,$(platform)))) \
@@ -43,8 +43,10 @@ build-tools:
 		GOOS=$(OS) GOARCH=$(ARCH) go build -C tools -o ../.github/actions/changelog/bin/changelog-$(OS)-$(ARCH) ./changelog && \
 		echo "Building coverage-comment-$(OS)-$(ARCH)..." && \
 		GOOS=$(OS) GOARCH=$(ARCH) go build -C tools -o ../.github/actions/coverage-comment/bin/coverage-comment-$(OS)-$(ARCH) ./coverage-comment && \
+		echo "Building coverage-check-$(OS)-$(ARCH)..." && \
+		GOOS=$(OS) GOARCH=$(ARCH) go build -C tools -o ../.github/actions/coverage-check/bin/coverage-check-$(OS)-$(ARCH) ./coverage-check && \
 	) true
 
 # Remove built binaries
 clean-tools:
-	@rm -rf .github/actions/changelog/bin .github/actions/coverage-comment/bin
+	@rm -rf .github/actions/changelog/bin .github/actions/coverage-comment/bin .github/actions/coverage-check/bin

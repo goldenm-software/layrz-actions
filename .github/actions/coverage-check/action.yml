@@ -1,0 +1,89 @@
+name: 'Coverage Threshold Check'
+description: 'Fail if any language coverage is below the configured threshold'
+author: 'Layrz'
+
+inputs:
+  enable-python:
+    description: 'Enable Python coverage check'
+    required: false
+    default: 'false'
+  enable-go:
+    description: 'Enable Go coverage check'
+    required: false
+    default: 'false'
+  enable-dart:
+    description: 'Enable Dart/Flutter coverage check'
+    required: false
+    default: 'false'
+  enable-cpp:
+    description: 'Enable C++ coverage check'
+    required: false
+    default: 'false'
+  python-coverage-path:
+    description: 'Path to Python lcov.info file'
+    required: false
+    default: 'python-coverage/lcov.info'
+  go-coverage-path:
+    description: 'Path to Go lcov.info file'
+    required: false
+    default: 'go-coverage/lcov.info'
+  dart-coverage-path:
+    description: 'Path to Dart lcov.info file'
+    required: false
+    default: 'flutter-coverage/lcov.info'
+  cpp-coverage-path:
+    description: 'Path to C++ lcov.info file'
+    required: false
+    default: 'cpp-coverage/lcov.info'
+  threshold:
+    description: 'Default minimum coverage percentage (applies to all enabled languages unless overridden)'
+    required: false
+    default: '80'
+  python-threshold:
+    description: 'Minimum coverage percentage for Python (overrides threshold)'
+    required: false
+    default: ''
+  go-threshold:
+    description: 'Minimum coverage percentage for Go (overrides threshold)'
+    required: false
+    default: ''
+  dart-threshold:
+    description: 'Minimum coverage percentage for Dart/Flutter (overrides threshold)'
+    required: false
+    default: ''
+  cpp-threshold:
+    description: 'Minimum coverage percentage for C++ (overrides threshold)'
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Select binary
+      id: bin
+      shell: bash
+      run: |
+        OS=$(echo "$RUNNER_OS" | tr '[:upper:]' '[:lower:]')
+        ARCH=$(echo "$RUNNER_ARCH" | tr '[:upper:]' '[:lower:]')
+        [ "$ARCH" = "x64" ] && ARCH="amd64"
+        echo "path=$GITHUB_ACTION_PATH/bin/coverage-check-${OS}-${ARCH}" >> $GITHUB_OUTPUT
+
+    - name: Run coverage-check
+      shell: bash
+      env:
+        ENABLE_PYTHON: ${{ inputs.enable-python }}
+        PYTHON_LCOV_PATH: ${{ inputs.python-coverage-path }}
+        ENABLE_GO: ${{ inputs.enable-go }}
+        GO_LCOV_PATH: ${{ inputs.go-coverage-path }}
+        ENABLE_DART: ${{ inputs.enable-dart }}
+        DART_LCOV_PATH: ${{ inputs.dart-coverage-path }}
+        ENABLE_CPP: ${{ inputs.enable-cpp }}
+        CPP_LCOV_PATH: ${{ inputs.cpp-coverage-path }}
+        DEFAULT_THRESHOLD: ${{ inputs.threshold }}
+        PYTHON_THRESHOLD: ${{ inputs.python-threshold }}
+        GO_THRESHOLD: ${{ inputs.go-threshold }}
+        DART_THRESHOLD: ${{ inputs.dart-threshold }}
+        CPP_THRESHOLD: ${{ inputs.cpp-threshold }}
+      run: |
+        chmod +x "${{ steps.bin.outputs.path }}"
+        "${{ steps.bin.outputs.path }}"
