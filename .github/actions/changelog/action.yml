@@ -73,9 +73,9 @@ runs:
         POST_COMMENT: ${{ inputs.post-comment }}
       run: |
         chmod +x "${{ steps.bin.outputs.path }}"
-        OUTPUT=$("${{ steps.bin.outputs.path }}")
+        "${{ steps.bin.outputs.path }}" > /tmp/changelog-output.txt
         {
           echo 'changelog<<CHANGELOG_EOF'
-          echo "$OUTPUT"
+          cat /tmp/changelog-output.txt
           echo 'CHANGELOG_EOF'
         } >> $GITHUB_OUTPUT

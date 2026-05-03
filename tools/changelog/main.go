@@ -114,8 +114,8 @@ func determineRefs() (fromRef, toRef string, isPR bool) {
 
 	if eventName == "pull_request" {
 		isPR = true
-		fromRef = os.Getenv("PR_HEAD_SHA")
-		toRef = os.Getenv("PR_BASE_SHA")
+		fromRef = os.Getenv("PR_BASE_SHA")
+		toRef = os.Getenv("PR_HEAD_SHA")
 		return
 	}
 
