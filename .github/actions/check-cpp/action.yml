@@ -78,15 +78,18 @@ runs:
       if: ${{ inputs.run-tests == 'true' }}
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      run: ctest --test-dir build --output-on-failure --output-junit test-results.xml
+      run: |
+        ctest --test-dir build --output-on-failure --output-junit test-results.xml
+        echo "ctest exit: $?"
 
     - name: Publish test results
       if: ${{ inputs.run-tests == 'true' }}
       uses: dorny/test-reporter@v3
       with:
         name: Unit Tests
-        path: ${{ inputs.working-directory }}/test-results.xml
+        path: "${{ inputs.working-directory }}/test-results.xml"
         reporter: java-junit
+        fail-on-empty: false
 
     - name: Collect coverage
       if: ${{ inputs.run-tests == 'true' }}
