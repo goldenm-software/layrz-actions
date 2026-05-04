@@ -32,6 +32,9 @@ outputs:
   coverage-path:
     description: 'Path to the generated lcov.info coverage file'
     value: ${{ steps.set-outputs.outputs.coverage-path }}
+  test-results-path:
+    description: 'Path to the test-results.xml file'
+    value: ${{ steps.set-outputs.outputs.test-results-path }}
   artifact-id:
     description: 'ID of the uploaded artifact'
     value: ${{ steps.upload-coverage.outputs.artifact-id }}
@@ -75,7 +78,15 @@ runs:
       if: ${{ inputs.run-tests == 'true' }}
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      run: ctest --test-dir build --output-on-failure
+      run: ctest --test-dir build --output-on-failure --output-junit build/test-results.xml
+
+    - name: Publish test results
+      if: ${{ inputs.run-tests == 'true' }}
+      uses: dorny/test-reporter@v3
+      with:
+        name: Unit Tests
+        path: ${{ inputs.working-directory }}/build/test-results.xml
+        reporter: java-junit
 
     - name: Collect coverage
       if: ${{ inputs.run-tests == 'true' }}
@@ -101,7 +112,9 @@ runs:
       shell: bash
       run: |
         COVERAGE_PATH="${{ inputs.working-directory }}/lcov.info"
+        TEST_RESULTS_PATH="${{ inputs.working-directory }}/build/test-results.xml"
         echo "coverage-path=$COVERAGE_PATH" >> $GITHUB_OUTPUT
+        echo "test-results-path=$TEST_RESULTS_PATH" >> $GITHUB_OUTPUT
 
     - name: Upload coverage artifact
       id: upload-coverage
