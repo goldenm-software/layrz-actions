@@ -78,14 +78,14 @@ runs:
       if: ${{ inputs.run-tests == 'true' }}
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      run: ctest --test-dir build --output-on-failure --output-junit build/test-results.xml
+      run: ctest --test-dir build --output-on-failure --output-junit test-results.xml
 
     - name: Publish test results
       if: ${{ inputs.run-tests == 'true' }}
       uses: dorny/test-reporter@v3
       with:
         name: Unit Tests
-        path: ${{ inputs.working-directory }}/build/test-results.xml
+        path: ${{ inputs.working-directory }}/test-results.xml
         reporter: java-junit
 
     - name: Collect coverage
@@ -112,7 +112,7 @@ runs:
       shell: bash
       run: |
         COVERAGE_PATH="${{ inputs.working-directory }}/lcov.info"
-        TEST_RESULTS_PATH="${{ inputs.working-directory }}/build/test-results.xml"
+        TEST_RESULTS_PATH="${{ inputs.working-directory }}/test-results.xml"
         echo "coverage-path=$COVERAGE_PATH" >> $GITHUB_OUTPUT
         echo "test-results-path=$TEST_RESULTS_PATH" >> $GITHUB_OUTPUT
 
