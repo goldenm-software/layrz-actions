@@ -25,14 +25,38 @@ func NewClient(token, repo string) *Client {
 	}
 }
 
+const maxAttempts = 3
+
 func (c *Client) do(method, path string, body any) ([]byte, int, error) {
-	var reqBody io.Reader
+	var jsonBody []byte
 	if body != nil {
 		b, err := json.Marshal(body)
 		if err != nil {
 			return nil, 0, err
 		}
-		reqBody = bytes.NewReader(b)
+		jsonBody = b
+	}
+
+	var data []byte
+	var status int
+	var err error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		if attempt > 1 {
+			time.Sleep(time.Duration(attempt-1) * 2 * time.Second)
+		}
+		data, status, err = c.doOnce(method, path, jsonBody)
+		// Retry on network errors and 5xx responses; anything else is final.
+		if err == nil && status < 500 {
+			return data, status, nil
+		}
+	}
+	return data, status, err
+}
+
+func (c *Client) doOnce(method, path string, jsonBody []byte) ([]byte, int, error) {
+	var reqBody io.Reader
+	if jsonBody != nil {
+		reqBody = bytes.NewReader(jsonBody)
 	}
 
 	req, err := http.NewRequest(method, baseURL+path, reqBody)
@@ -42,7 +66,7 @@ func (c *Client) do(method, path string, body any) ([]byte, int, error) {
 	req.Header.Set("Authorization", "Bearer "+c.token)
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-	if body != nil {
+	if jsonBody != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
 

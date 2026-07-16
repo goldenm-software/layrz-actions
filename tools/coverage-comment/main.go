@@ -40,7 +40,6 @@ func main() {
 
 	client := gh.NewClient(token, repo)
 	if err := client.PostOrUpdateComment(prNum, coverageMarker, report); err != nil {
-		fmt.Fprintf(os.Stderr, "post comment: %v\n", err)
-		os.Exit(1)
+		fmt.Printf("::warning::failed to post coverage comment: %v\n", err)
 	}
 }

@@ -95,8 +95,7 @@ func main() {
 			return
 		}
 		if err := client.PostOrUpdateComment(prNum, "📋 Changelog Summary", changelog); err != nil {
-			fmt.Fprintf(os.Stderr, "post comment: %v\n", err)
-			os.Exit(1)
+			fmt.Printf("::warning::failed to post changelog comment: %v\n", err)
 		}
 	}
 }
