@@ -29,6 +29,7 @@ Run SwiftLint linting and XCTest tests for iOS with optional lcov coverage repor
 | `flutter-directory` | Directory to run Flutter commands in | No | `.` |
 | `run-pod-install` | Whether to run pod install (cocoapods is preinstalled on macOS) | No | `true` |
 | `lint-directory` | Directory path to lint with swiftlint (e.g., ios/layrz_push/Sources for hand-written code) | No | `.` |
+| `swiftlint-version` | Version of SwiftLint to use (e.g., 0.57.0); downloaded from official GitHub releases | No | `0.57.0` |
 | `run-lint` | Whether to run SwiftLint | No | `true` |
 | `run-tests` | Whether to run XCTest tests | No | `true` |
 | `upload-artifact` | Whether to upload test results artifact | No | `true` |
@@ -86,6 +87,15 @@ This keeps only lcov records whose `SF:` (source file) path contains `layrz_push
 Downstream coverage actions (e.g., `coverage-comment`, `coverage-check`) will default to `swift-coverage/lcov.info` (artifact-name/file-name).
 
 ## SwiftLint Configuration
+
+The action downloads a pinned version of SwiftLint (default 0.57.0) from the official GitHub releases, ensuring version consistency between CI and local tooling. To use a different version, set the `swiftlint-version` input:
+
+```yaml
+- name: Run Swift checks
+  uses: goldenm-software/layrz-actions/.github/actions/check-swift@v1
+  with:
+    swiftlint-version: '0.58.0'
+```
 
 The action looks for `.swiftlint.yml` in the working directory. If not found, it creates a default configuration that excludes:
 - Generated files (`*.g.swift`)

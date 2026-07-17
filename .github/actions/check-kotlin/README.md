@@ -33,6 +33,10 @@ Run Kotlin linting (ktlint) and Gradle unit tests for Android with optional JaCo
 | `coverage-path` | Path to the JaCoCo XML report, relative to working-directory; empty disables coverage upload | No | `` |
 | `coverage-artifact-name` | Name for the coverage artifact | No | `kotlin-coverage` |
 
+## Notes on Path Normalization
+
+The action automatically normalizes all artifact paths to be workspace-relative before uploading to `actions/upload-artifact`. This allows callers to safely use relative paths with `..` (e.g., Flutter plugins with redirected build directories like `example/android/../build/layrz_push/reports/jacoco/jacoco.xml`). The normalization step resolves these paths using `realpath --relative-to` (with a Python fallback for platforms without GNU coreutils), ensuring artifact uploads never fail with "relative pathing '.' and '..' is not allowed" errors.
+
 ## Outputs
 
 | Output | Description |

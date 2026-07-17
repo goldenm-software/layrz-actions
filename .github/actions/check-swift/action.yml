@@ -35,6 +35,10 @@ inputs:
     description: 'Directory path to lint with swiftlint (e.g., ios/layrz_push/Sources for hand-written code)'
     required: false
     default: '.'
+  swiftlint-version:
+    description: 'Version of SwiftLint to use (e.g., 0.57.0)'
+    required: false
+    default: '0.57.0'
   run-lint:
     description: 'Whether to run SwiftLint'
     required: false
@@ -102,20 +106,38 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       run: pod install
 
-    - name: Install SwiftLint
+    - name: Download and install SwiftLint
+      id: install-swiftlint
       if: ${{ inputs.run-lint == 'true' }}
       shell: bash
       run: |
-        if ! command -v swiftlint &> /dev/null; then
-          brew install swiftlint
+        set -e
+
+        SWIFTLINT_VERSION="${{ inputs.swiftlint-version }}"
+        DOWNLOAD_URL="https://github.com/realm/SwiftLint/releases/download/${SWIFTLINT_VERSION}/portable_swiftlint.zip"
+        SWIFTLINT_BIN_DIR="$RUNNER_TEMP/swiftlint-bin"
+
+        mkdir -p "$SWIFTLINT_BIN_DIR"
+
+        echo "Downloading SwiftLint $SWIFTLINT_VERSION from $DOWNLOAD_URL"
+        if ! curl -sL "$DOWNLOAD_URL" -o "$RUNNER_TEMP/swiftlint.zip"; then
+          echo "ERROR: Failed to download SwiftLint $SWIFTLINT_VERSION from GitHub releases"
+          echo "Verify that version $SWIFTLINT_VERSION exists at: https://github.com/realm/SwiftLint/releases"
+          exit 1
         fi
+
+        unzip -oq "$RUNNER_TEMP/swiftlint.zip" -d "$SWIFTLINT_BIN_DIR"
+        chmod +x "$SWIFTLINT_BIN_DIR/swiftlint"
+
+        echo "swiftlint-path=$SWIFTLINT_BIN_DIR/swiftlint" >> $GITHUB_OUTPUT
 
     - name: Run SwiftLint
       if: ${{ inputs.run-lint == 'true' }}
       shell: bash
       run: |
+        SWIFTLINT_PATH="${{ steps.install-swiftlint.outputs.swiftlint-path }}"
         if [ -f ".swiftlint.yml" ]; then
-          swiftlint lint --strict --force-exclude "${{ inputs.lint-directory }}"
+          "$SWIFTLINT_PATH" lint --strict --force-exclude "${{ inputs.lint-directory }}"
         else
           cat > "$RUNNER_TEMP/swiftlint.yml" << 'SWIFTLINT_EOF'
         excluded:
@@ -124,7 +146,7 @@ runs:
           - "**/.symlinks"
           - "**/.dart_tool"
         SWIFTLINT_EOF
-          swiftlint lint --strict --force-exclude --config "$RUNNER_TEMP/swiftlint.yml" "${{ inputs.lint-directory }}"
+          "$SWIFTLINT_PATH" lint --strict --force-exclude --config "$RUNNER_TEMP/swiftlint.yml" "${{ inputs.lint-directory }}"
         fi
 
     - name: Create build reports directory

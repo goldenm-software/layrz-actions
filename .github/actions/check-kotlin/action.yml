@@ -134,12 +134,42 @@ runs:
         fi
         ./gradlew ${{ inputs.gradle-task }}
 
+    - name: Normalize artifact paths
+      id: normalize-paths
+      if: ${{ inputs.run-tests == 'true' }}
+      shell: bash
+      run: |
+        set -e
+
+        # Helper function to normalize a path
+        normalize_path() {
+          local path="$1"
+          if command -v realpath &> /dev/null; then
+            realpath --relative-to="$GITHUB_WORKSPACE" "$path" 2>/dev/null || python3 -c "import os.path,sys; print(os.path.relpath('$path', os.environ['GITHUB_WORKSPACE']))"
+          else
+            python3 -c "import os.path,sys; print(os.path.relpath('$path', os.environ['GITHUB_WORKSPACE']))"
+          fi
+        }
+
+        # Normalize test results path
+        TEST_RESULTS_FULL="${{ inputs.working-directory }}/${{ inputs.test-results-path }}"
+        TEST_RESULTS_NORMALIZED=$(normalize_path "$TEST_RESULTS_FULL")
+        echo "test-results-path=$TEST_RESULTS_NORMALIZED" >> $GITHUB_OUTPUT
+
+        # Normalize coverage path if specified
+        COVERAGE_PATH="${{ inputs.coverage-path }}"
+        if [ -n "$COVERAGE_PATH" ]; then
+          COVERAGE_FULL="${{ inputs.working-directory }}/$COVERAGE_PATH"
+          COVERAGE_NORMALIZED=$(normalize_path "$COVERAGE_FULL")
+          echo "coverage-path=$COVERAGE_NORMALIZED" >> $GITHUB_OUTPUT
+        fi
+
     - name: Publish test results
       if: ${{ inputs.run-tests == 'true' }}
       uses: dorny/test-reporter@v3
       with:
         name: Kotlin Unit Tests
-        path: ${{ inputs.working-directory }}/${{ inputs.test-results-path }}/**/*.xml
+        path: ${{ steps.normalize-paths.outputs.test-results-path }}/**/*.xml
         reporter: java-junit
 
     - name: Upload coverage artifact
@@ -148,7 +178,7 @@ runs:
       uses: actions/upload-artifact@v7
       with:
         name: ${{ inputs.coverage-artifact-name }}
-        path: ${{ inputs.working-directory }}/${{ inputs.coverage-path }}
+        path: ${{ steps.normalize-paths.outputs.coverage-path }}
         retention-days: 1
 
     - name: Set outputs
@@ -156,11 +186,11 @@ runs:
       if: ${{ inputs.run-tests == 'true' }}
       shell: bash
       run: |
-        TEST_RESULTS_PATH="${{ inputs.working-directory }}/${{ inputs.test-results-path }}"
+        TEST_RESULTS_PATH="${{ steps.normalize-paths.outputs.test-results-path }}"
         echo "test-results-path=$TEST_RESULTS_PATH" >> $GITHUB_OUTPUT
-        COVERAGE_PATH="${{ inputs.coverage-path }}"
+        COVERAGE_PATH="${{ steps.normalize-paths.outputs.coverage-path }}"
         if [ -n "$COVERAGE_PATH" ]; then
-          echo "coverage-path=${{ inputs.working-directory }}/$COVERAGE_PATH" >> $GITHUB_OUTPUT
+          echo "coverage-path=$COVERAGE_PATH" >> $GITHUB_OUTPUT
         fi
 
     - name: Upload artifact
@@ -169,5 +199,5 @@ runs:
       uses: actions/upload-artifact@v7
       with:
         name: ${{ inputs.artifact-name }}
-        path: ${{ inputs.working-directory }}/${{ inputs.test-results-path }}
+        path: ${{ steps.normalize-paths.outputs.test-results-path }}
         retention-days: 1
