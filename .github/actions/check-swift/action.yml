@@ -111,6 +111,17 @@ runs:
         restore-keys: |
           ${{ runner.os }}-pods-
 
+    - name: Cache Swift packages
+      if: ${{ inputs.run-tests == 'true' }}
+      uses: actions/cache@v6
+      with:
+        path: |
+          ${{ inputs.working-directory }}/build/SourcePackages
+          ~/Library/Caches/org.swift.swiftpm
+        key: ${{ runner.os }}-spm-${{ hashFiles(format('{0}/**/Package.resolved', inputs.working-directory)) }}
+        restore-keys: |
+          ${{ runner.os }}-spm-
+
     - name: Run pod install
       if: ${{ inputs.run-pod-install == 'true' }}
       shell: bash

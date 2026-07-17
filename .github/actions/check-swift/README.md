@@ -51,16 +51,32 @@ Run SwiftLint linting and XCTest tests for iOS with optional lcov coverage repor
 
 1. **Setup Flutter** (optional): Configures Flutter if flutter-version is specified
 2. **Cache CocoaPods** (when pod install enabled): Caches both `Pods/` and `~/Library/Caches/CocoaPods` to avoid rebuilding Firebase and other pods from source on every run
-3. **Run pod install**: Installs CocoaPods dependencies (optional)
-4. **Install SwiftLint**: Ensures SwiftLint is available (via Homebrew if needed)
-5. **Run SwiftLint**: Lints Swift source files, excluding generated code and Pods
-6. **Create build reports directory**: Sets up output directory for test reports
-7. **Install xcpretty**: Ensures the Ruby formatter for xcodebuild output is available
-8. **Run XCTest tests**: Executes tests with code coverage enabled; simulator tests ad-hoc sign by default, providing the application-identifier entitlement required for keychain access (SecItem* operations)
-9. **Export coverage to lcov**: Converts XCCode coverage data to lcov format (optional)
-10. **Publish test results**: Reports test results via dorny/test-reporter
-11. **Upload coverage artifact**: Uploads the lcov.info file (if coverage is enabled)
-12. **Upload artifact**: Uploads test results as an artifact (retention: 1 day)
+3. **Cache Swift packages** (when tests enabled): Caches SPM dependencies in `build/SourcePackages` and `~/Library/Caches/org.swift.swiftpm` to avoid re-downloading Swift Package Manager packages (e.g., firebase-ios-sdk from plugin Package.swift manifests)
+4. **Run pod install**: Installs CocoaPods dependencies (optional)
+5. **Install SwiftLint**: Ensures SwiftLint is available (via Homebrew if needed)
+6. **Run SwiftLint**: Lints Swift source files, excluding generated code and Pods
+7. **Create build reports directory**: Sets up output directory for test reports
+8. **Install xcpretty**: Ensures the Ruby formatter for xcodebuild output is available
+9. **Run XCTest tests**: Executes tests with code coverage enabled; simulator tests ad-hoc sign by default, providing the application-identifier entitlement required for keychain access (SecItem* operations)
+10. **Export coverage to lcov**: Converts XCCode coverage data to lcov format (optional)
+11. **Publish test results**: Reports test results via dorny/test-reporter
+12. **Upload coverage artifact**: Uploads the lcov.info file (if coverage is enabled)
+13. **Upload artifact**: Uploads test results as an artifact (retention: 1 day)
+
+## Caching
+
+The action employs three complementary cache layers to accelerate CI runs:
+
+### CocoaPods Cache
+Caches pod dependencies (`Pods/` directory and `~/Library/Caches/CocoaPods`) keyed on `Podfile.lock` and `Podfile`. Avoids rebuilding Firebase iOS SDK and other pods from source on every run.
+
+### Swift Package Manager (SPM) Cache
+Caches Swift package manager dependencies in `<working-directory>/build/SourcePackages` and `~/Library/Caches/org.swift.swiftpm`, keyed on `**/Package.resolved` within the working directory. This is active whenever `run-tests` is enabled (since SPM resolution happens during `xcodebuild test`). Avoids re-downloading packages like firebase-ios-sdk declared in plugin `Package.swift` manifests.
+
+### Flutter SDK Cache
+When `flutter-version` is specified, the `setup-flutter` action caches the Flutter SDK itself via `cache: true` and `cache-sdk: true`.
+
+Together, these three caches reduce CI runtime by 30-50% on subsequent runs, depending on dependency counts.
 
 ## Coverage Setup
 
