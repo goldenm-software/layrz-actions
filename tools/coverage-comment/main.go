@@ -29,6 +29,12 @@ func main() {
 	if os.Getenv("ENABLE_CPP") == "true" {
 		data = append(data, parseLcov(os.Getenv("CPP_LCOV_PATH"), "C++", "⚙️"))
 	}
+	if os.Getenv("ENABLE_KOTLIN") == "true" {
+		data = append(data, parseJacoco(os.Getenv("KOTLIN_JACOCO_PATH"), "Kotlin/Android", "🤖"))
+	}
+	if os.Getenv("ENABLE_SWIFT") == "true" {
+		data = append(data, parseLcov(os.Getenv("SWIFT_LCOV_PATH"), "Swift", "🍎"))
+	}
 
 	report := buildReport(data)
 	fmt.Print(report)

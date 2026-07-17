@@ -19,6 +19,18 @@ inputs:
     description: 'Enable C++ coverage reporting'
     required: false
     default: 'false'
+  enable-kotlin:
+    description: 'Enable Kotlin/Android (JaCoCo) coverage reporting'
+    required: false
+    default: 'false'
+  enable-swift:
+    description: 'Enable Swift coverage reporting'
+    required: false
+    default: 'false'
+  kotlin-coverage-path:
+    description: 'Path to Kotlin JaCoCo XML file'
+    required: false
+    default: 'kotlin-coverage/jacoco.xml'
   python-coverage-path:
     description: 'Path to Python lcov.info file (must be downloaded first)'
     required: false
@@ -35,6 +47,10 @@ inputs:
     description: 'Path to C++ lcov.info file (must be downloaded first)'
     required: false
     default: 'cpp-coverage/lcov.info'
+  swift-coverage-path:
+    description: 'Path to Swift lcov.info file'
+    required: false
+    default: 'swift-coverage/lcov.info'
   github-token:
     description: 'GitHub token for posting comments'
     required: false
@@ -66,6 +82,10 @@ runs:
         DART_LCOV_PATH: ${{ inputs.dart-coverage-path }}
         ENABLE_CPP: ${{ inputs.enable-cpp }}
         CPP_LCOV_PATH: ${{ inputs.cpp-coverage-path }}
+        ENABLE_KOTLIN: ${{ inputs.enable-kotlin }}
+        KOTLIN_JACOCO_PATH: ${{ inputs.kotlin-coverage-path }}
+        ENABLE_SWIFT: ${{ inputs.enable-swift }}
+        SWIFT_LCOV_PATH: ${{ inputs.swift-coverage-path }}
       run: |
         chmod +x "${{ steps.bin.outputs.path }}"
         "${{ steps.bin.outputs.path }}"

@@ -8,10 +8,11 @@ import (
 )
 
 type langCheck struct {
-	name      string
-	icon      string
-	lcovPath  string
-	threshold float64
+	name       string
+	icon       string
+	lcovPath   string
+	jacocoPath string
+	threshold  float64
 }
 
 func main() {
@@ -19,16 +20,10 @@ func main() {
 
 	langs := []langCheck{
 		{
-			name:      "Python",
-			icon:      "🐍",
-			lcovPath:  os.Getenv("PYTHON_LCOV_PATH"),
-			threshold: env.Float("PYTHON_THRESHOLD", defaultThreshold),
-		},
-		{
-			name:      "Go",
-			icon:      "🔷",
-			lcovPath:  os.Getenv("GO_LCOV_PATH"),
-			threshold: env.Float("GO_THRESHOLD", defaultThreshold),
+			name:      "C++",
+			icon:      "⚙️",
+			lcovPath:  os.Getenv("CPP_LCOV_PATH"),
+			threshold: env.Float("CPP_THRESHOLD", defaultThreshold),
 		},
 		{
 			name:      "Dart/Flutter",
@@ -37,18 +32,38 @@ func main() {
 			threshold: env.Float("DART_THRESHOLD", defaultThreshold),
 		},
 		{
-			name:      "C++",
-			icon:      "⚙️",
-			lcovPath:  os.Getenv("CPP_LCOV_PATH"),
-			threshold: env.Float("CPP_THRESHOLD", defaultThreshold),
+			name:      "Go",
+			icon:      "🔷",
+			lcovPath:  os.Getenv("GO_LCOV_PATH"),
+			threshold: env.Float("GO_THRESHOLD", defaultThreshold),
+		},
+		{
+			name:       "Kotlin/Android",
+			icon:       "🤖",
+			jacocoPath: os.Getenv("KOTLIN_JACOCO_PATH"),
+			threshold:  env.Float("KOTLIN_THRESHOLD", defaultThreshold),
+		},
+		{
+			name:      "Python",
+			icon:      "🐍",
+			lcovPath:  os.Getenv("PYTHON_LCOV_PATH"),
+			threshold: env.Float("PYTHON_THRESHOLD", defaultThreshold),
+		},
+		{
+			name:      "Swift",
+			icon:      "🍎",
+			lcovPath:  os.Getenv("SWIFT_LCOV_PATH"),
+			threshold: env.Float("SWIFT_THRESHOLD", defaultThreshold),
 		},
 	}
 
 	enabledKeys := map[string]string{
-		"Python":      "ENABLE_PYTHON",
-		"Go":          "ENABLE_GO",
-		"Dart/Flutter": "ENABLE_DART",
-		"C++":         "ENABLE_CPP",
+		"C++":            "ENABLE_CPP",
+		"Dart/Flutter":   "ENABLE_DART",
+		"Go":             "ENABLE_GO",
+		"Kotlin/Android": "ENABLE_KOTLIN",
+		"Python":         "ENABLE_PYTHON",
+		"Swift":          "ENABLE_SWIFT",
 	}
 
 	failed := false
@@ -58,10 +73,19 @@ func main() {
 			continue
 		}
 
-		data := parseLcov(l.lcovPath, l.name, l.icon)
+		var data CoverageData
+		if l.jacocoPath != "" {
+			data = parseJacoco(l.jacocoPath, l.name, l.icon)
+		} else {
+			data = parseLcov(l.lcovPath, l.name, l.icon)
+		}
 
 		if !data.Available {
-			fmt.Fprintf(os.Stderr, "%s %s: no coverage data found at %q\n", l.icon, l.name, l.lcovPath)
+			path := l.lcovPath
+			if l.jacocoPath != "" {
+				path = l.jacocoPath
+			}
+			fmt.Fprintf(os.Stderr, "%s %s: no coverage data found at %q\n", l.icon, l.name, path)
 			failed = true
 			continue
 		}

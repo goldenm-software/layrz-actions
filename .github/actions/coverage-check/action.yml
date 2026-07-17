@@ -19,6 +19,18 @@ inputs:
     description: 'Enable C++ coverage check'
     required: false
     default: 'false'
+  enable-kotlin:
+    description: 'Enable Kotlin/Android (JaCoCo) coverage check'
+    required: false
+    default: 'false'
+  enable-swift:
+    description: 'Enable Swift coverage check'
+    required: false
+    default: 'false'
+  kotlin-coverage-path:
+    description: 'Path to Kotlin JaCoCo XML file'
+    required: false
+    default: 'kotlin-coverage/jacoco.xml'
   python-coverage-path:
     description: 'Path to Python lcov.info file'
     required: false
@@ -55,6 +67,18 @@ inputs:
     description: 'Minimum coverage percentage for C++ (overrides threshold)'
     required: false
     default: ''
+  kotlin-threshold:
+    description: 'Minimum coverage percentage for Kotlin/Android (overrides threshold)'
+    required: false
+    default: ''
+  swift-coverage-path:
+    description: 'Path to Swift lcov.info file'
+    required: false
+    default: 'swift-coverage/lcov.info'
+  swift-threshold:
+    description: 'Minimum coverage percentage for Swift (overrides threshold)'
+    required: false
+    default: ''
 
 runs:
   using: 'composite'
@@ -84,6 +108,12 @@ runs:
         GO_THRESHOLD: ${{ inputs.go-threshold }}
         DART_THRESHOLD: ${{ inputs.dart-threshold }}
         CPP_THRESHOLD: ${{ inputs.cpp-threshold }}
+        ENABLE_KOTLIN: ${{ inputs.enable-kotlin }}
+        KOTLIN_JACOCO_PATH: ${{ inputs.kotlin-coverage-path }}
+        KOTLIN_THRESHOLD: ${{ inputs.kotlin-threshold }}
+        ENABLE_SWIFT: ${{ inputs.enable-swift }}
+        SWIFT_LCOV_PATH: ${{ inputs.swift-coverage-path }}
+        SWIFT_THRESHOLD: ${{ inputs.swift-threshold }}
       run: |
         chmod +x "${{ steps.bin.outputs.path }}"
         "${{ steps.bin.outputs.path }}"
