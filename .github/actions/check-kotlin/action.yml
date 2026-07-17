@@ -47,11 +47,22 @@ inputs:
     description: 'Relative path to test results directory (from working-directory)'
     required: false
     default: 'build/test-results'
+  coverage-path:
+    description: 'Path to the JaCoCo XML report, relative to working-directory; empty disables coverage upload'
+    required: false
+    default: ''
+  coverage-artifact-name:
+    description: 'Name for the coverage artifact'
+    required: false
+    default: 'kotlin-coverage'
 
 outputs:
   test-results-path:
     description: 'Path to the Gradle test results XML directory'
     value: ${{ steps.set-outputs.outputs.test-results-path }}
+  coverage-path:
+    description: 'Path to the JaCoCo XML coverage file'
+    value: ${{ steps.set-outputs.outputs.coverage-path }}
   artifact-id:
     description: 'ID of the uploaded artifact'
     value: ${{ steps.upload-artifact.outputs.artifact-id }}
@@ -119,6 +130,15 @@ runs:
         path: ${{ inputs.working-directory }}/${{ inputs.test-results-path }}/**/*.xml
         reporter: java-junit
 
+    - name: Upload coverage artifact
+      id: upload-coverage
+      if: ${{ inputs.run-tests == 'true' && inputs.coverage-path != '' }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ inputs.coverage-artifact-name }}
+        path: ${{ inputs.working-directory }}/${{ inputs.coverage-path }}
+        retention-days: 1
+
     - name: Set outputs
       id: set-outputs
       if: ${{ inputs.run-tests == 'true' }}
@@ -126,6 +146,10 @@ runs:
       run: |
         TEST_RESULTS_PATH="${{ inputs.working-directory }}/${{ inputs.test-results-path }}"
         echo "test-results-path=$TEST_RESULTS_PATH" >> $GITHUB_OUTPUT
+        COVERAGE_PATH="${{ inputs.coverage-path }}"
+        if [ -n "$COVERAGE_PATH" ]; then
+          echo "coverage-path=${{ inputs.working-directory }}/$COVERAGE_PATH" >> $GITHUB_OUTPUT
+        fi
 
     - name: Upload artifact
       id: upload-artifact
