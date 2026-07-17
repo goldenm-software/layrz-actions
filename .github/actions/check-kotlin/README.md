@@ -82,6 +82,26 @@ tasks.jacocoTestReport {
 
 The action expects the XML report at the path specified in `coverage-path`. Downstream coverage actions (e.g., `coverage-comment`, `coverage-check`) will default to `kotlin-coverage/jacoco.xml` (artifact-name/file-name).
 
+## Flutter Plugin Example
+
+For Flutter plugins, the Gradle wrapper files (gradlew, gradlew.bat, gradle-wrapper.jar) and `local.properties` are typically gitignored. To run Gradle tests in this case, **always set `flutter-version`**:
+
+```yaml
+- name: Run Kotlin checks
+  uses: goldenm-software/layrz-actions/.github/actions/check-kotlin@v1
+  with:
+    working-directory: 'android'
+    flutter-version: '3.24.0'  # Required for Flutter plugins to materialize gradle wrapper
+    flutter-directory: '.'
+    gradle-task: 'testDebugUnitTest'
+    run-lint: 'true'
+    run-tests: 'true'
+```
+
+When `flutter-version` is set, the action runs `flutter pub get && flutter build apk --config-only` to generate the Gradle wrapper and `local.properties` before running Gradle tests. If `flutter-version` is empty and the gradlew file is missing, the action will fail with a clear error message.
+
+**Alternatively**, if you prefer not to use Flutter, commit the gradle wrapper files to your repository.
+
 ## Full Examples
 
 See the [main repository documentation](https://github.com/goldenm-software/layrz-actions) for complete workflow examples.

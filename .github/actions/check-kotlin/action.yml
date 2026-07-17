@@ -82,11 +82,11 @@ runs:
         cache: true
         cache-sdk: true
 
-    - name: Run flutter pub get
+    - name: Run flutter pub get and materialize gradle wrapper
       if: ${{ inputs.flutter-version != '' }}
       shell: bash
       working-directory: ${{ inputs.flutter-directory }}
-      run: flutter pub get
+      run: flutter pub get && flutter build apk --config-only
 
     - name: Setup Java
       uses: actions/setup-java@v4
@@ -120,7 +120,19 @@ runs:
       if: ${{ inputs.run-tests == 'true' }}
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      run: ./gradlew ${{ inputs.gradle-task }}
+      run: |
+        if [ ! -f ./gradlew ]; then
+          echo "ERROR: gradlew not found in ${{ inputs.working-directory }}"
+          echo "This typically happens when:"
+          echo "  1. The project is a Flutter plugin/app where gradle wrapper files are gitignored"
+          echo "  2. flutter-version input was not set to materialize the wrapper"
+          echo ""
+          echo "SOLUTION:"
+          echo "  - Set flutter-version input to enable 'flutter build apk --config-only'"
+          echo "  - OR commit the gradle wrapper files to the repository (gradlew, gradlew.bat, gradle-wrapper.jar)"
+          exit 1
+        fi
+        ./gradlew ${{ inputs.gradle-task }}
 
     - name: Publish test results
       if: ${{ inputs.run-tests == 'true' }}
