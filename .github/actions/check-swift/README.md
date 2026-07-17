@@ -56,7 +56,7 @@ Run SwiftLint linting and XCTest tests for iOS with optional lcov coverage repor
 5. **Run SwiftLint**: Lints Swift source files, excluding generated code and Pods
 6. **Create build reports directory**: Sets up output directory for test reports
 7. **Install xcpretty**: Ensures the Ruby formatter for xcodebuild output is available
-8. **Run XCTest tests**: Executes tests with code coverage enabled
+8. **Run XCTest tests**: Executes tests with code coverage enabled; simulator tests ad-hoc sign by default, providing the application-identifier entitlement required for keychain access (SecItem* operations)
 9. **Export coverage to lcov**: Converts XCCode coverage data to lcov format (optional)
 10. **Publish test results**: Reports test results via dorny/test-reporter
 11. **Upload coverage artifact**: Uploads the lcov.info file (if coverage is enabled)

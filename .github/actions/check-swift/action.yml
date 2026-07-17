@@ -194,13 +194,13 @@ runs:
           DESTINATION="platform=iOS Simulator,name=$SIM_NAME"
         fi
 
+        # No CODE_SIGNING_ALLOWED=NO: simulator tests ad-hoc sign by default, and an unsigned test host cannot access the keychain (SecItem* fails without the application-identifier entitlement)
         xcodebuild test \
           -workspace "${{ inputs.workspace }}" \
           -scheme "${{ inputs.scheme }}" \
           -destination "$DESTINATION" \
           -derivedDataPath build \
-          -enableCodeCoverage YES \
-          CODE_SIGNING_ALLOWED=NO | \
+          -enableCodeCoverage YES | \
           xcpretty --report junit --output build/reports/junit/junit.xml
 
     - name: Export coverage to lcov
