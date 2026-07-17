@@ -50,16 +50,17 @@ Run SwiftLint linting and XCTest tests for iOS with optional lcov coverage repor
 ## What It Does
 
 1. **Setup Flutter** (optional): Configures Flutter if flutter-version is specified
-2. **Run pod install**: Installs CocoaPods dependencies (optional)
-3. **Install SwiftLint**: Ensures SwiftLint is available (via Homebrew if needed)
-4. **Run SwiftLint**: Lints Swift source files, excluding generated code and Pods
-5. **Create build reports directory**: Sets up output directory for test reports
-6. **Install xcpretty**: Ensures the Ruby formatter for xcodebuild output is available
-7. **Run XCTest tests**: Executes tests with code coverage enabled
-8. **Export coverage to lcov**: Converts XCCode coverage data to lcov format (optional)
-9. **Publish test results**: Reports test results via dorny/test-reporter
-10. **Upload coverage artifact**: Uploads the lcov.info file (if coverage is enabled)
-11. **Upload artifact**: Uploads test results as an artifact (retention: 1 day)
+2. **Cache CocoaPods** (when pod install enabled): Caches both `Pods/` and `~/Library/Caches/CocoaPods` to avoid rebuilding Firebase and other pods from source on every run
+3. **Run pod install**: Installs CocoaPods dependencies (optional)
+4. **Install SwiftLint**: Ensures SwiftLint is available (via Homebrew if needed)
+5. **Run SwiftLint**: Lints Swift source files, excluding generated code and Pods
+6. **Create build reports directory**: Sets up output directory for test reports
+7. **Install xcpretty**: Ensures the Ruby formatter for xcodebuild output is available
+8. **Run XCTest tests**: Executes tests with code coverage enabled
+9. **Export coverage to lcov**: Converts XCCode coverage data to lcov format (optional)
+10. **Publish test results**: Reports test results via dorny/test-reporter
+11. **Upload coverage artifact**: Uploads the lcov.info file (if coverage is enabled)
+12. **Upload artifact**: Uploads test results as an artifact (retention: 1 day)
 
 ## Coverage Setup
 

@@ -116,6 +116,15 @@ runs:
           "!**/*.g.kt" \
           --reporter=plain
 
+    - name: Cache local Maven repository (Robolectric artifacts)
+      if: ${{ inputs.run-tests == 'true' }}
+      uses: actions/cache@v4
+      with:
+        path: ~/.m2/repository
+        key: ${{ runner.os }}-m2-${{ hashFiles(format('{0}/**/*.gradle*', inputs.working-directory)) }}
+        restore-keys: |
+          ${{ runner.os }}-m2-
+
     - name: Run Gradle tests
       if: ${{ inputs.run-tests == 'true' }}
       shell: bash

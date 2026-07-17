@@ -52,10 +52,11 @@ The action automatically normalizes all artifact paths to be workspace-relative 
 2. **Setup Java**: Configures the Java environment with the specified version
 3. **Download ktlint**: Retrieves the ktlint CLI tool if lint is enabled
 4. **Run ktlint**: Lints Kotlin source files, excluding generated files (*.g.kt)
-5. **Run Gradle tests**: Executes the specified Gradle test task
-6. **Publish test results**: Reports test results via dorny/test-reporter
-7. **Upload coverage artifact**: Uploads the JaCoCo XML report (if coverage-path is specified)
-8. **Set outputs**: Provides paths to test results and coverage files
+5. **Cache local Maven repository** (when tests enabled): Caches Robolectric and other Maven artifacts (~100MB+) to avoid re-downloading on every run
+6. **Run Gradle tests**: Executes the specified Gradle test task
+7. **Publish test results**: Reports test results via dorny/test-reporter
+8. **Upload coverage artifact**: Uploads the JaCoCo XML report (if coverage-path is specified)
+9. **Set outputs**: Provides paths to test results and coverage files
 
 ## Coverage Setup
 

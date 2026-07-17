@@ -100,6 +100,17 @@ runs:
       working-directory: ${{ inputs.flutter-directory }}
       run: flutter build ios --config-only --no-codesign --debug
 
+    - name: Cache CocoaPods
+      if: ${{ inputs.run-pod-install == 'true' }}
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{ inputs.working-directory }}/Pods
+          ~/Library/Caches/CocoaPods
+        key: ${{ runner.os }}-pods-${{ hashFiles(format('{0}/Podfile.lock', inputs.working-directory), format('{0}/Podfile', inputs.working-directory)) }}
+        restore-keys: |
+          ${{ runner.os }}-pods-
+
     - name: Run pod install
       if: ${{ inputs.run-pod-install == 'true' }}
       shell: bash
