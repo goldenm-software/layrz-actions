@@ -115,7 +115,7 @@ runs:
       shell: bash
       run: |
         if [ -f ".swiftlint.yml" ]; then
-          swiftlint lint --strict "${{ inputs.lint-directory }}"
+          swiftlint lint --strict --force-exclude "${{ inputs.lint-directory }}"
         else
           cat > "$RUNNER_TEMP/swiftlint.yml" << 'SWIFTLINT_EOF'
         excluded:
@@ -124,7 +124,7 @@ runs:
           - "**/.symlinks"
           - "**/.dart_tool"
         SWIFTLINT_EOF
-          swiftlint lint --strict --config "$RUNNER_TEMP/swiftlint.yml" "${{ inputs.lint-directory }}"
+          swiftlint lint --strict --force-exclude --config "$RUNNER_TEMP/swiftlint.yml" "${{ inputs.lint-directory }}"
         fi
 
     - name: Create build reports directory
