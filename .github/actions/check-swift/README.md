@@ -68,10 +68,22 @@ Coverage is enabled by default (`run-coverage: 'true'`). The action:
 
 1. Enables code coverage during the XCTest run with `-enableCodeCoverage YES`
 2. Finds the generated `Coverage.profdata` in the Xcode build directory
-3. Uses `xcrun llvm-cov` to export coverage to lcov format
+3. Uses `xcrun llvm-cov` to export coverage to lcov format by searching for instrumented binaries
 4. Optionally filters the lcov output by `coverage-include-pattern` to focus on specific source paths
 
-**Important**: Because Firebase pods require static frameworks on iOS, plugin code links into the app binary, so the app binary's coverage naturally includes plugin sources.
+### Coverage candidate search
+
+The step searches for Mach-O executables under `build/Build/Products/*-iphonesimulator/` in this priority order:
+
+1. **Test bundle**: `*.xctest/PlugIns/*.xctest/` executable (e.g., `RunnerTests.xctest/RunnerTests`)
+2. **Framework binaries**: `*.app/Frameworks/*.framework/` executables
+3. **App binary**: `*.app/<AppName>`
+
+It attempts a combined export using all candidates found (first candidate as the primary binary, others via `-object` flags). If that fails or produces no output, it falls back to trying each candidate individually. The first candidate that produces a non-empty, valid lcov file is used. The step logs which binary won.
+
+**Important**: Because Firebase pods require static frameworks on iOS, plugin code links into the app binary, so coverage naturally includes plugin sources across multiple binaries.
+
+**Non-fatal behavior**: If coverage export fails (no candidates, no valid output, etc.), the step logs a warning ("coverage export skipped: <reason> — tests are unaffected"), sets output `found=false`, and does NOT fail the job. Downstream coverage uploads gate on the `found` output, so test results are always published even if coverage is unavailable.
 
 ### Example: Filter coverage by plugin sources
 

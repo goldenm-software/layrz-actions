@@ -209,72 +209,145 @@ runs:
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       run: |
-        set -e
+        # Non-fatal coverage export: any failure prints a warning and exits cleanly
+        {
+          # Helper function to filter lcov by path pattern
+          filter_lcov_by_pattern() {
+            local pattern="$1"
+            local input_file="$2"
+            local output_file="$3"
 
-        # Helper function to filter lcov by path pattern
-        filter_lcov_by_pattern() {
-          local pattern="$1"
-          local input_file="$2"
-          local output_file="$3"
-
-          awk -v pattern="$pattern" '
-            /^SF:/ {
-              current_sf = $0
-              if (index(current_sf, pattern) > 0) {
-                in_record = 1
-                print current_sf
-              } else {
-                in_record = 0
+            awk -v pattern="$pattern" '
+              /^SF:/ {
+                current_sf = $0
+                if (index(current_sf, pattern) > 0) {
+                  in_record = 1
+                  print current_sf
+                } else {
+                  in_record = 0
+                }
+                next
               }
-              next
-            }
-            /^end_of_record/ {
-              if (in_record) print $0
-              in_record = 0
-              next
-            }
-            in_record { print $0 }
-          ' "$input_file" > "$output_file"
-        }
+              /^end_of_record/ {
+                if (in_record) print $0
+                in_record = 0
+                next
+              }
+              in_record { print $0 }
+            ' "$input_file" > "$output_file"
+          }
 
-        # Find the profdata
-        PROFDATA=$(find build/Build/ProfileData -name 'Coverage.profdata' | head -n1)
-        if [ -z "$PROFDATA" ]; then
-          echo "Warning: Coverage.profdata not found in build/Build/ProfileData"
-          echo "found=false" >> $GITHUB_OUTPUT
-          exit 0
-        fi
+          # Helper to check if file is a Mach-O executable
+          is_mach_o() {
+            local file="$1"
+            [ -f "$file" ] && file "$file" 2>/dev/null | grep -q "Mach-O"
+          }
 
-        # Find the app binary
-        APP_BINARY=$(find build/Build/Products/*-iphonesimulator/"${{ inputs.scheme }}".app -name "${{ inputs.scheme }}" -type f 2>/dev/null | head -n1)
-        if [ -z "$APP_BINARY" ]; then
-          APP_BINARY=$(find build/Build/Products -name "*.app" -type d 2>/dev/null | head -n1)
-          if [ -n "$APP_BINARY" ]; then
-            APP_SCHEME=$(basename "$APP_BINARY" .app)
-            APP_BINARY="$APP_BINARY/$APP_SCHEME"
+          # Find the profdata
+          PROFDATA=$(find build/Build/ProfileData -name 'Coverage.profdata' | head -n1)
+          if [ -z "$PROFDATA" ]; then
+            echo "coverage export skipped: Coverage.profdata not found in build/Build/ProfileData — tests are unaffected"
+            echo "found=false" >> $GITHUB_OUTPUT
+            exit 0
           fi
-        fi
 
-        if [ ! -f "$APP_BINARY" ]; then
-          echo "Warning: App binary not found"
+          # Create reports directory if needed
+          mkdir -p build/reports
+
+          # Search for coverage candidates: prioritized order
+          CANDIDATES=()
+
+          # Candidate A: *.xctest executable inside test bundle
+          for xctest_dir in build/Build/Products/*-iphonesimulator/*.xctest/PlugIns/*.xctest/; do
+            if [ -d "$xctest_dir" ]; then
+              xctest_name=$(basename "$xctest_dir" .xctest)
+              xctest_bin="$xctest_dir$xctest_name"
+              if is_mach_o "$xctest_bin"; then
+                CANDIDATES+=("$xctest_bin")
+              fi
+            fi
+          done
+
+          # Candidate B: Framework executables
+          for framework_dir in build/Build/Products/*-iphonesimulator/*.app/Frameworks/*.framework/; do
+            if [ -d "$framework_dir" ]; then
+              framework_name=$(basename "$framework_dir" .framework)
+              framework_bin="$framework_dir$framework_name"
+              if is_mach_o "$framework_bin"; then
+                CANDIDATES+=("$framework_bin")
+              fi
+            fi
+          done
+
+          # Candidate C: App binary itself
+          APP_BINARY=$(find build/Build/Products/*-iphonesimulator/"${{ inputs.scheme }}".app -name "${{ inputs.scheme }}" -type f 2>/dev/null | head -n1)
+          if [ -z "$APP_BINARY" ]; then
+            APP_BINARY=$(find build/Build/Products -name "*.app" -type d 2>/dev/null | head -n1)
+            if [ -n "$APP_BINARY" ]; then
+              APP_SCHEME=$(basename "$APP_BINARY" .app)
+              APP_BINARY="$APP_BINARY/$APP_SCHEME"
+            fi
+          fi
+          if is_mach_o "$APP_BINARY"; then
+            CANDIDATES+=("$APP_BINARY")
+          fi
+
+          if [ ${#CANDIDATES[@]} -eq 0 ]; then
+            echo "coverage export skipped: no Mach-O executables found in build/Build/Products/*-iphonesimulator/ — tests are unaffected"
+            echo "found=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Try combined export with all candidates (first as primary, rest as -object flags)
+          PRIMARY_BIN="${CANDIDATES[0]}"
+          TMP_LCOV="$RUNNER_TEMP/lcov.tmp"
+          EXPORT_SUCCESS=false
+
+          if [ ${#CANDIDATES[@]} -gt 1 ]; then
+            OBJECT_FLAGS=""
+            for ((i=1; i<${#CANDIDATES[@]}; i++)); do
+              OBJECT_FLAGS="$OBJECT_FLAGS -object ${CANDIDATES[i]}"
+            done
+
+            if xcrun llvm-cov export -format=lcov -instr-profile "$PROFDATA" $OBJECT_FLAGS "$PRIMARY_BIN" > "$TMP_LCOV" 2>/dev/null && [ -s "$TMP_LCOV" ] && grep -q "^SF:" "$TMP_LCOV"; then
+              mv "$TMP_LCOV" build/reports/lcov.info
+              echo "coverage from combined export: $(echo ${CANDIDATES[@]} | tr ' ' '+')"
+              EXPORT_SUCCESS=true
+            fi
+          fi
+
+          # Fallback: iterate candidates one by one
+          if [ "$EXPORT_SUCCESS" = false ]; then
+            for candidate in "${CANDIDATES[@]}"; do
+              if xcrun llvm-cov export -format=lcov -instr-profile "$PROFDATA" "$candidate" > "$TMP_LCOV" 2>/dev/null && [ -s "$TMP_LCOV" ] && grep -q "^SF:" "$TMP_LCOV"; then
+                mv "$TMP_LCOV" build/reports/lcov.info
+                echo "coverage from: $(basename $(dirname "$candidate"))/$(basename "$candidate")"
+                EXPORT_SUCCESS=true
+                break
+              fi
+            done
+          fi
+
+          if [ "$EXPORT_SUCCESS" = false ]; then
+            echo "coverage export skipped: no candidate produced valid lcov output — tests are unaffected"
+            echo "found=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Filter by pattern if provided
+          INCLUDE_PATTERN="${{ inputs.coverage-include-pattern }}"
+          if [ -n "$INCLUDE_PATTERN" ]; then
+            filter_lcov_by_pattern "$INCLUDE_PATTERN" build/reports/lcov.info build/reports/lcov.info.filtered
+            mv build/reports/lcov.info.filtered build/reports/lcov.info
+          fi
+
+          echo "found=true" >> $GITHUB_OUTPUT
+        } || {
+          WARN_MSG="coverage export failed with error — tests are unaffected"
+          echo "$WARN_MSG"
           echo "found=false" >> $GITHUB_OUTPUT
-          exit 0
-        fi
-
-        # Create reports directory if needed
-        mkdir -p build/reports
-
-        # Export coverage
-        xcrun llvm-cov export -format=lcov -instr-profile "$PROFDATA" "$APP_BINARY" > build/reports/lcov.info
-
-        # Filter by pattern if provided
-        INCLUDE_PATTERN="${{ inputs.coverage-include-pattern }}"
-        if [ -n "$INCLUDE_PATTERN" ]; then
-          filter_lcov_by_pattern "$INCLUDE_PATTERN" build/reports/lcov.info build/reports/lcov.info.filtered
-          mv build/reports/lcov.info.filtered build/reports/lcov.info
-        fi
-
-        echo "found=true" >> $GITHUB_OUTPUT
+        }
+        exit 0
 
     - name: Publish test results
       if: ${{ inputs.run-tests == 'true' }}
