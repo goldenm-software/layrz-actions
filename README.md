@@ -33,6 +33,8 @@ jobs:
 | [check-python](/.github/actions/check-python) | Python linting (Ruff), type checking, tests with UV | [README](/.github/actions/check-python/README.md) |
 | [check-dart](/.github/actions/check-dart) | Dart/Flutter analyze and tests with coverage | [README](/.github/actions/check-dart/README.md) |
 | [check-go](/.github/actions/check-go) | Go linting (golangci-lint) and tests | [README](/.github/actions/check-go/README.md) |
+| [check-kotlin](/.github/actions/check-kotlin) | Kotlin linting (ktlint) and Gradle unit tests | [README](/.github/actions/check-kotlin/README.md) |
+| [check-swift](/.github/actions/check-swift) | Swift linting (SwiftLint) and XCTest tests | [README](/.github/actions/check-swift/README.md) |
 
 ### Coverage & Changelog
 
@@ -121,6 +123,80 @@ jobs:
       - uses: goldenm-software/layrz-actions/.github/actions/check-go@v1
         with:
           run-tests: true
+```
+
+### Kotlin/Android Checks
+
+**Basic usage (standalone Gradle project):**
+
+```yaml
+name: Kotlin Checks
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: goldenm-software/layrz-actions/.github/actions/check-kotlin@v1
+        with:
+          gradle-task: testDebugUnitTest
+          run-lint: true
+          run-tests: true
+```
+
+**For Flutter plugin with example app (Android module built via example):**
+
+```yaml
+- uses: goldenm-software/layrz-actions/.github/actions/check-kotlin@v1
+  with:
+    working-directory: example/android
+    gradle-task: testDebugUnitTest
+    test-results-path: ../build/layrz_push/test-results
+    run-lint: true
+    run-tests: true
+```
+
+### Swift/iOS Checks
+
+Note: This action requires `runs-on: macos-latest` or similar macOS runner.
+
+**Recommended: Lint only hand-written sources (excludes Pods, generated code):**
+
+```yaml
+name: Swift Checks
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: goldenm-software/layrz-actions/.github/actions/check-swift@v1
+        with:
+          working-directory: example/ios
+          lint-directory: ../layrz_push/Sources
+          run-lint: true
+          run-tests: true
+```
+
+**Full directory lint (uses repo .swiftlint.yml if present, otherwise excludes *.g.swift, Pods):**
+
+```yaml
+- uses: goldenm-software/layrz-actions/.github/actions/check-swift@v1
+  with:
+    working-directory: example/ios
+    lint-directory: .
+    run-lint: true
+    run-tests: true
 ```
 
 ### Docker Build (Multi-Architecture)

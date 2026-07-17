@@ -1,0 +1,166 @@
+name: 'Swift/iOS Checks'
+description: 'Run SwiftLint linting and XCTest tests for iOS'
+author: 'Layrz'
+
+inputs:
+  working-directory:
+    description: 'Directory containing the iOS workspace (e.g., example/ios)'
+    required: false
+    default: 'example/ios'
+  workspace:
+    description: 'Name of the Xcode workspace'
+    required: false
+    default: 'Runner.xcworkspace'
+  scheme:
+    description: 'Xcode scheme to build and test'
+    required: false
+    default: 'Runner'
+  destination:
+    description: 'xcodebuild destination specifier'
+    required: false
+    default: 'platform=iOS Simulator,name=iPhone 16'
+  flutter-version:
+    description: 'Flutter version to use; when non-empty, set up Flutter and run flutter build ios --config-only'
+    required: false
+    default: ''
+  flutter-directory:
+    description: 'Directory to run Flutter commands in'
+    required: false
+    default: '.'
+  run-pod-install:
+    description: 'Whether to run pod install (cocoapods is preinstalled on macOS)'
+    required: false
+    default: 'true'
+  lint-directory:
+    description: 'Directory path to lint with swiftlint (e.g., ios/layrz_push/Sources for hand-written code)'
+    required: false
+    default: '.'
+  run-lint:
+    description: 'Whether to run SwiftLint'
+    required: false
+    default: 'true'
+  run-tests:
+    description: 'Whether to run XCTest tests'
+    required: false
+    default: 'true'
+  upload-artifact:
+    description: 'Whether to upload test results artifact'
+    required: false
+    default: 'true'
+  artifact-name:
+    description: 'Name for the test results artifact'
+    required: false
+    default: 'swift-test-results'
+
+outputs:
+  test-results-path:
+    description: 'Path to the junit test results XML file'
+    value: ${{ steps.set-outputs.outputs.test-results-path }}
+  artifact-id:
+    description: 'ID of the uploaded artifact'
+    value: ${{ steps.upload-artifact.outputs.artifact-id }}
+  artifact-url:
+    description: 'URL of the uploaded artifact'
+    value: ${{ steps.upload-artifact.outputs.artifact-url }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Flutter
+      if: ${{ inputs.flutter-version != '' }}
+      uses: flutter-actions/setup-flutter@v4
+      with:
+        channel: stable
+        version: ${{ inputs.flutter-version }}
+        cache: true
+        cache-sdk: true
+
+    - name: Run flutter build ios --config-only
+      if: ${{ inputs.flutter-version != '' }}
+      shell: bash
+      working-directory: ${{ inputs.flutter-directory }}
+      run: flutter build ios --config-only --no-codesign --debug
+
+    - name: Run pod install
+      if: ${{ inputs.run-pod-install == 'true' }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: pod install
+
+    - name: Install SwiftLint
+      if: ${{ inputs.run-lint == 'true' }}
+      shell: bash
+      run: |
+        if ! command -v swiftlint &> /dev/null; then
+          brew install swiftlint
+        fi
+
+    - name: Run SwiftLint
+      if: ${{ inputs.run-lint == 'true' }}
+      shell: bash
+      run: |
+        if [ -f ".swiftlint.yml" ]; then
+          swiftlint lint --strict "${{ inputs.lint-directory }}"
+        else
+          cat > "$RUNNER_TEMP/swiftlint.yml" << 'SWIFTLINT_EOF'
+        excluded:
+          - "**/*.g.swift"
+          - "**/Pods"
+          - "**/.symlinks"
+          - "**/.dart_tool"
+        SWIFTLINT_EOF
+          swiftlint lint --strict --config "$RUNNER_TEMP/swiftlint.yml" "${{ inputs.lint-directory }}"
+        fi
+
+    - name: Create build reports directory
+      if: ${{ inputs.run-tests == 'true' }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: mkdir -p build/reports/junit
+
+    - name: Install xcpretty
+      if: ${{ inputs.run-tests == 'true' }}
+      shell: bash
+      run: |
+        if ! command -v xcpretty &> /dev/null; then
+          sudo gem install xcpretty
+        fi
+
+    - name: Run XCTest tests
+      if: ${{ inputs.run-tests == 'true' }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        set -o pipefail
+        xcodebuild test \
+          -workspace "${{ inputs.workspace }}" \
+          -scheme "${{ inputs.scheme }}" \
+          -destination "${{ inputs.destination }}" \
+          -derivedDataPath build \
+          CODE_SIGNING_ALLOWED=NO | \
+          xcpretty --report junit --output build/reports/junit/junit.xml
+
+    - name: Publish test results
+      if: ${{ inputs.run-tests == 'true' }}
+      uses: dorny/test-reporter@v3
+      with:
+        name: Swift Unit Tests
+        path: ${{ inputs.working-directory }}/build/reports/junit/junit.xml
+        reporter: java-junit
+
+    - name: Set outputs
+      id: set-outputs
+      if: ${{ inputs.run-tests == 'true' }}
+      shell: bash
+      run: |
+        TEST_RESULTS_PATH="${{ inputs.working-directory }}/build/reports/junit/junit.xml"
+        echo "test-results-path=$TEST_RESULTS_PATH" >> $GITHUB_OUTPUT
+
+    - name: Upload artifact
+      id: upload-artifact
+      if: ${{ inputs.run-tests == 'true' && inputs.upload-artifact == 'true' }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ inputs.working-directory }}/build/reports/junit
+        retention-days: 1

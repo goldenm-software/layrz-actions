@@ -1,0 +1,137 @@
+name: 'Kotlin/Android Checks'
+description: 'Run Kotlin linting (ktlint) and Gradle unit tests for Android'
+author: 'Layrz'
+
+inputs:
+  working-directory:
+    description: 'Directory containing the Gradle project'
+    required: false
+    default: '.'
+  gradle-task:
+    description: 'Gradle task to run for tests'
+    required: false
+    default: 'testDebugUnitTest'
+  java-version:
+    description: 'Java version to use (temurin distribution)'
+    required: false
+    default: '17'
+  ktlint-version:
+    description: 'Version of ktlint CLI to use'
+    required: false
+    default: '1.4.1'
+  flutter-version:
+    description: 'Flutter version to use; when non-empty, set up Flutter first'
+    required: false
+    default: ''
+  flutter-directory:
+    description: 'Directory to run flutter pub get in'
+    required: false
+    default: '.'
+  run-lint:
+    description: 'Whether to run ktlint linting'
+    required: false
+    default: 'true'
+  run-tests:
+    description: 'Whether to run Gradle tests'
+    required: false
+    default: 'true'
+  upload-artifact:
+    description: 'Whether to upload test results artifact'
+    required: false
+    default: 'true'
+  artifact-name:
+    description: 'Name for the test results artifact'
+    required: false
+    default: 'kotlin-test-results'
+  test-results-path:
+    description: 'Relative path to test results directory (from working-directory)'
+    required: false
+    default: 'build/test-results'
+
+outputs:
+  test-results-path:
+    description: 'Path to the Gradle test results XML directory'
+    value: ${{ steps.set-outputs.outputs.test-results-path }}
+  artifact-id:
+    description: 'ID of the uploaded artifact'
+    value: ${{ steps.upload-artifact.outputs.artifact-id }}
+  artifact-url:
+    description: 'URL of the uploaded artifact'
+    value: ${{ steps.upload-artifact.outputs.artifact-url }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Flutter
+      if: ${{ inputs.flutter-version != '' }}
+      uses: flutter-actions/setup-flutter@v4
+      with:
+        channel: stable
+        version: ${{ inputs.flutter-version }}
+        cache: true
+        cache-sdk: true
+
+    - name: Run flutter pub get
+      if: ${{ inputs.flutter-version != '' }}
+      shell: bash
+      working-directory: ${{ inputs.flutter-directory }}
+      run: flutter pub get
+
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: ${{ inputs.java-version }}
+        cache: 'gradle'
+
+    - name: Download ktlint CLI
+      id: download-ktlint
+      if: ${{ inputs.run-lint == 'true' }}
+      shell: bash
+      run: |
+        KTLINT_VERSION="${{ inputs.ktlint-version }}"
+        DOWNLOAD_URL="https://github.com/pinterest/ktlint/releases/download/${KTLINT_VERSION}/ktlint"
+        curl -sL "$DOWNLOAD_URL" -o "${{ runner.temp }}/ktlint"
+        chmod +x "${{ runner.temp }}/ktlint"
+        echo "ktlint-path=${{ runner.temp }}/ktlint" >> $GITHUB_OUTPUT
+
+    - name: Run ktlint
+      if: ${{ inputs.run-lint == 'true' }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        "${{ steps.download-ktlint.outputs.ktlint-path }}" \
+          "**/src/**/*.kt" \
+          "!**/*.g.kt" \
+          --reporter=plain
+
+    - name: Run Gradle tests
+      if: ${{ inputs.run-tests == 'true' }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: ./gradlew ${{ inputs.gradle-task }}
+
+    - name: Publish test results
+      if: ${{ inputs.run-tests == 'true' }}
+      uses: dorny/test-reporter@v3
+      with:
+        name: Kotlin Unit Tests
+        path: ${{ inputs.working-directory }}/${{ inputs.test-results-path }}/**/*.xml
+        reporter: java-junit
+
+    - name: Set outputs
+      id: set-outputs
+      if: ${{ inputs.run-tests == 'true' }}
+      shell: bash
+      run: |
+        TEST_RESULTS_PATH="${{ inputs.working-directory }}/${{ inputs.test-results-path }}"
+        echo "test-results-path=$TEST_RESULTS_PATH" >> $GITHUB_OUTPUT
+
+    - name: Upload artifact
+      id: upload-artifact
+      if: ${{ inputs.run-tests == 'true' && inputs.upload-artifact == 'true' }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ inputs.working-directory }}/${{ inputs.test-results-path }}
+        retention-days: 1
