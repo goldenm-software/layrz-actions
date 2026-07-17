@@ -13,7 +13,7 @@ jobs:
   lint-python:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: goldenm-software/layrz-actions/.github/actions/check-python@v1
         with:
           run-tests: true
@@ -28,7 +28,7 @@ jobs:
   lint-go:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: goldenm-software/layrz-actions/.github/actions/check-go@v1
         with:
           run-tests: true

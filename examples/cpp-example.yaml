@@ -9,7 +9,7 @@ jobs:
   lint-cpp:  # ← This will be the check name!
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: goldenm-software/layrz-actions/.github/actions/check-cpp@v1
         with:
