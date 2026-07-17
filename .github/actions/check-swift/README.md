@@ -24,7 +24,7 @@ Run SwiftLint linting and XCTest tests for iOS with optional lcov coverage repor
 | `working-directory` | Directory containing the iOS workspace (e.g., example/ios) | No | `example/ios` |
 | `workspace` | Name of the Xcode workspace | No | `Runner.xcworkspace` |
 | `scheme` | Xcode scheme to build and test | No | `Runner` |
-| `destination` | xcodebuild destination specifier | No | `platform=iOS Simulator,name=iPhone 16` |
+| `destination` | xcodebuild destination; "auto" picks the first available iPhone simulator on the runner | No | `auto` |
 | `flutter-version` | Flutter version to use; when non-empty, set up Flutter and run flutter build ios --config-only | No | `` |
 | `flutter-directory` | Directory to run Flutter commands in | No | `.` |
 | `run-pod-install` | Whether to run pod install (cocoapods is preinstalled on macOS) | No | `true` |

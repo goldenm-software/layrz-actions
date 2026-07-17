@@ -16,9 +16,9 @@ inputs:
     required: false
     default: 'Runner'
   destination:
-    description: 'xcodebuild destination specifier'
+    description: 'xcodebuild destination; "auto" picks the first available iPhone simulator on the runner'
     required: false
-    default: 'platform=iOS Simulator,name=iPhone 16'
+    default: 'auto'
   flutter-version:
     description: 'Flutter version to use; when non-empty, set up Flutter and run flutter build ios --config-only'
     required: false
@@ -169,10 +169,24 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       run: |
         set -o pipefail
+
+        # Resolve simulator destination if needed
+        DESTINATION="${{ inputs.destination }}"
+        if [ "$DESTINATION" = "auto" ]; then
+          SIM_NAME=$(xcrun simctl list devices available | grep -oE 'iPhone [0-9][^(]*' | head -n1 | xargs)
+          if [ -z "$SIM_NAME" ]; then
+            echo "ERROR: no available iPhone simulator found on this runner"
+            xcrun simctl list devices available
+            exit 1
+          fi
+          echo "Using simulator: $SIM_NAME"
+          DESTINATION="platform=iOS Simulator,name=$SIM_NAME"
+        fi
+
         xcodebuild test \
           -workspace "${{ inputs.workspace }}" \
           -scheme "${{ inputs.scheme }}" \
-          -destination "${{ inputs.destination }}" \
+          -destination "$DESTINATION" \
           -derivedDataPath build \
           -enableCodeCoverage YES \
           CODE_SIGNING_ALLOWED=NO | \
