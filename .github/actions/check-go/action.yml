@@ -81,42 +81,6 @@ runs:
           echo "No '$VERSION_FILE_PATH' found; using golangci-lint $FALLBACK_GOLANGCI_LINT_VERSION for this run."
         fi
 
-        # Pre-flight guard: golangci-lint's own go.mod is pinned, by upstream
-        # policy, to (latest Go minor - 1) — see
-        # https://github.com/golangci/golangci-lint/blob/main/go.mod. No
-        # golangci-lint release is ever built with the newest Go toolchain, so
-        # a go.mod targeting that newest release will fail to lint no matter
-        # which golangci-lint version is selected here. This is a diagnostic
-        # only: it never fails the job, since the actual failure (if any)
-        # will surface clearly from the "Run linter" step.
-        GO_MOD_PATH="${WORKING_DIRECTORY}/go.mod"
-        TARGET_GO_VERSION=""
-        if [ -f "$GO_MOD_PATH" ]; then
-          TARGET_GO_VERSION=$(grep -E '^go [0-9]+\.[0-9]+' "$GO_MOD_PATH" | head -n1 | awk '{print $2}')
-          if [ -z "$TARGET_GO_VERSION" ]; then
-            echo "::warning::Could not find a 'go' directive in $GO_MOD_PATH; skipping the golangci-lint compatibility pre-flight check."
-          else
-            echo "Consuming repo go.mod declares: go $TARGET_GO_VERSION"
-          fi
-        else
-          echo "::warning::No go.mod found at $GO_MOD_PATH; skipping the golangci-lint compatibility pre-flight check."
-        fi
-
-        if [ -n "$TARGET_GO_VERSION" ]; then
-          SUPPORTED_GO_VERSION=$(curl -fsSL "https://raw.githubusercontent.com/golangci/golangci-lint/v2/go.mod" 2>/dev/null | grep -E '^go [0-9]+\.[0-9]+' | head -n1 | awk '{print $2}' || true)
-          if [ -n "$SUPPORTED_GO_VERSION" ]; then
-            echo "golangci-lint (v2 branch) currently supports up to: go $SUPPORTED_GO_VERSION"
-            TARGET_MINOR=$(echo "$TARGET_GO_VERSION" | awk -F. '{print $1"."$2}')
-            SUPPORTED_MINOR=$(echo "$SUPPORTED_GO_VERSION" | awk -F. '{print $1"."$2}')
-            IS_NEWER=$(awk -v a="$TARGET_MINOR" -v b="$SUPPORTED_MINOR" 'BEGIN{split(a,x,".");split(b,y,".");if(x[1]>y[1]||(x[1]==y[1]&&x[2]>y[2]))print "1";else print "0"}')
-            if [ "$IS_NEWER" = "1" ]; then
-              echo "::warning::This repo's go.mod targets go $TARGET_GO_VERSION, newer than the go $SUPPORTED_GO_VERSION that golangci-lint currently supports. By upstream policy, golangci-lint always tracks (latest Go minor - 1), so no available golangci-lint release will lint against go $TARGET_GO_VERSION until golangci-lint catches up. The 'Run linter' step below will likely fail with 'can't load config: the Go language version ... is lower than the targeted Go version'. Fix: lower the 'go' directive in $GO_MOD_PATH to at most $SUPPORTED_GO_VERSION — this only sets the minimum language version your code requires, not the toolchain used to build it, so the newer Go toolchain set via the go-version input still builds and runs your code unchanged."
-            fi
-          else
-            echo "::warning::Could not fetch golangci-lint's go.mod to run the compatibility pre-flight check (network issue or file moved); proceeding without it."
-          fi
-        fi
-
     - name: Run linter
       uses: golangci/golangci-lint-action@v9
       with:
