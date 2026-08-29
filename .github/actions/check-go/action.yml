@@ -15,19 +15,6 @@ inputs:
     description: 'Dependency path for Go cache'
     required: false
     default: 'go.sum'
-  golangci-lint-version:
-    description: >-
-      Version of golangci-lint to use. Default 'auto' resolves it via the
-      following precedence (see the "Resolve golangci-lint version" step):
-      1) an explicit value passed here always wins, honoured verbatim;
-      2) otherwise, '<working-directory>/.golangci-lint-version' is used
-      if present; 3) otherwise, '<working-directory>/.tool-versions' is
-      used if present AND it contains a 'golangci-lint' entry; 4) otherwise
-      falls back to the previously hardcoded default version. Pass an
-      explicit version (e.g. 'v2.11.4') to pin it for reproducibility —
-      an explicit value is always honoured verbatim and never overridden.
-    required: false
-    default: 'auto'
   run-tests:
     description: 'Whether to run tests'
     required: false
@@ -74,24 +61,34 @@ runs:
         go-version: ${{ inputs.go-version }}
         cache-dependency-path: ${{ inputs.working-directory }}/${{ inputs.go-cache-dependency-path }}
 
-    - name: Resolve golangci-lint version
-      id: resolve-golangci-lint
+    - name: Ensure golangci-lint version file
       shell: bash
       run: |
         set -e
 
-        EXPLICIT_VERSION="${{ inputs.golangci-lint-version }}"
         WORKING_DIRECTORY="${{ inputs.working-directory }}"
 
-        # Historical default retained as the last-resort fallback when the
-        # caller hasn't pinned a version AND the consuming repo has no
-        # '.golangci-lint-version' / '.tool-versions' of its own. Bumping
-        # this later (e.g. when golangci-lint v2.12 ships) is a one-line change.
+        # Fallback golangci-lint version supplied when the consuming repo
+        # doesn't pin its own via '.golangci-lint-version'. Bumping this
+        # later (e.g. when golangci-lint v2.12 ships) is a one-line change.
         FALLBACK_GOLANGCI_LINT_VERSION="v2.11"
 
-        # go.mod's `go` directive is a minimum-language-version floor, read here
-        # purely for logging and for the pre-flight guard below — it never drives
-        # which golangci-lint version we ask for.
+        VERSION_FILE_PATH="${WORKING_DIRECTORY}/.golangci-lint-version"
+        if [ -f "$VERSION_FILE_PATH" ]; then
+          echo "Using golangci-lint version pinned by the repo at '$VERSION_FILE_PATH'."
+        else
+          echo "$FALLBACK_GOLANGCI_LINT_VERSION" > "$VERSION_FILE_PATH"
+          echo "No '$VERSION_FILE_PATH' found; using golangci-lint $FALLBACK_GOLANGCI_LINT_VERSION for this run."
+        fi
+
+        # Pre-flight guard: golangci-lint's own go.mod is pinned, by upstream
+        # policy, to (latest Go minor - 1) — see
+        # https://github.com/golangci/golangci-lint/blob/main/go.mod. No
+        # golangci-lint release is ever built with the newest Go toolchain, so
+        # a go.mod targeting that newest release will fail to lint no matter
+        # which golangci-lint version is selected here. This is a diagnostic
+        # only: it never fails the job, since the actual failure (if any)
+        # will surface clearly from the "Run linter" step.
         GO_MOD_PATH="${WORKING_DIRECTORY}/go.mod"
         TARGET_GO_VERSION=""
         if [ -f "$GO_MOD_PATH" ]; then
@@ -105,48 +102,6 @@ runs:
           echo "::warning::No go.mod found at $GO_MOD_PATH; skipping the golangci-lint compatibility pre-flight check."
         fi
 
-        # Resolution precedence (highest first):
-        #   1. explicit `golangci-lint-version` input (anything but 'auto') — verbatim, never overridden
-        #   2. '<working-directory>/.golangci-lint-version', if present
-        #   3. '<working-directory>/.tool-versions', if present AND it has a golangci-lint entry
-        #   4. the hardcoded $FALLBACK_GOLANGCI_LINT_VERSION
-        #
-        # golangci-lint-action@v9's `version` and `version-file` inputs are
-        # mutually exclusive (it warns and ignores version-file if both are
-        # non-empty). A composite action step can't conditionally omit an
-        # input key, so this step always emits BOTH `version` and
-        # `version-file` outputs with exactly one of them non-empty; the
-        # "Run linter" step below passes both through unconditionally.
-        RESOLVED_VERSION=""
-        RESOLVED_VERSION_FILE=""
-
-        if [ -n "$EXPLICIT_VERSION" ] && [ "$EXPLICIT_VERSION" != "auto" ]; then
-          echo "golangci-lint-version was explicitly set to '$EXPLICIT_VERSION' — honouring it verbatim, no auto-resolution."
-          RESOLVED_VERSION="$EXPLICIT_VERSION"
-        else
-          VERSION_FILE_PATH="${WORKING_DIRECTORY}/.golangci-lint-version"
-          TOOL_VERSIONS_PATH="${WORKING_DIRECTORY}/.tool-versions"
-
-          if [ -f "$VERSION_FILE_PATH" ]; then
-            echo "golangci-lint-version is 'auto' — found '$VERSION_FILE_PATH' in the consuming repo, using it via version-file."
-            RESOLVED_VERSION_FILE="$VERSION_FILE_PATH"
-          elif [ -f "$TOOL_VERSIONS_PATH" ] && grep -qE '^golangci-lint[[:space:]]' "$TOOL_VERSIONS_PATH"; then
-            echo "golangci-lint-version is 'auto' — no .golangci-lint-version, but found a golangci-lint entry in '$TOOL_VERSIONS_PATH', using it via version-file."
-            RESOLVED_VERSION_FILE="$TOOL_VERSIONS_PATH"
-          else
-            echo "golangci-lint-version is 'auto' — no .golangci-lint-version or .tool-versions (with a golangci-lint entry) found in '$WORKING_DIRECTORY'; falling back to the hardcoded default '$FALLBACK_GOLANGCI_LINT_VERSION'."
-            RESOLVED_VERSION="$FALLBACK_GOLANGCI_LINT_VERSION"
-          fi
-        fi
-
-        # Pre-flight guard: golangci-lint's own go.mod is pinned, by upstream
-        # policy, to (latest Go minor - 1) — see
-        # https://github.com/golangci/golangci-lint/blob/main/go.mod. No
-        # golangci-lint release is ever built with the newest Go toolchain, so
-        # a go.mod targeting that newest release will fail to lint no matter
-        # which golangci-lint version is selected here (auto or explicit).
-        # This is a diagnostic only: it never fails the job, since the actual
-        # failure (if any) will surface clearly from the "Run linter" step.
         if [ -n "$TARGET_GO_VERSION" ]; then
           SUPPORTED_GO_VERSION=$(curl -fsSL "https://raw.githubusercontent.com/golangci/golangci-lint/v2/go.mod" 2>/dev/null | grep -E '^go [0-9]+\.[0-9]+' | head -n1 | awk '{print $2}' || true)
           if [ -n "$SUPPORTED_GO_VERSION" ]; then
@@ -155,23 +110,18 @@ runs:
             SUPPORTED_MINOR=$(echo "$SUPPORTED_GO_VERSION" | awk -F. '{print $1"."$2}')
             IS_NEWER=$(awk -v a="$TARGET_MINOR" -v b="$SUPPORTED_MINOR" 'BEGIN{split(a,x,".");split(b,y,".");if(x[1]>y[1]||(x[1]==y[1]&&x[2]>y[2]))print "1";else print "0"}')
             if [ "$IS_NEWER" = "1" ]; then
-              echo "::warning::This repo's go.mod targets go $TARGET_GO_VERSION, newer than the go $SUPPORTED_GO_VERSION that golangci-lint currently supports. By upstream policy, golangci-lint always tracks (latest Go minor - 1), so no available golangci-lint release (auto or pinned) will lint against go $TARGET_GO_VERSION until golangci-lint catches up. The 'Run linter' step below will likely fail with 'can't load config: the Go language version ... is lower than the targeted Go version'. Fix: lower the 'go' directive in $GO_MOD_PATH to at most $SUPPORTED_GO_VERSION — this only sets the minimum language version your code requires, not the toolchain used to build it, so the newer Go toolchain set via the go-version input still builds and runs your code unchanged."
+              echo "::warning::This repo's go.mod targets go $TARGET_GO_VERSION, newer than the go $SUPPORTED_GO_VERSION that golangci-lint currently supports. By upstream policy, golangci-lint always tracks (latest Go minor - 1), so no available golangci-lint release will lint against go $TARGET_GO_VERSION until golangci-lint catches up. The 'Run linter' step below will likely fail with 'can't load config: the Go language version ... is lower than the targeted Go version'. Fix: lower the 'go' directive in $GO_MOD_PATH to at most $SUPPORTED_GO_VERSION — this only sets the minimum language version your code requires, not the toolchain used to build it, so the newer Go toolchain set via the go-version input still builds and runs your code unchanged."
             fi
           else
             echo "::warning::Could not fetch golangci-lint's go.mod to run the compatibility pre-flight check (network issue or file moved); proceeding without it."
           fi
         fi
 
-        echo "Resolved golangci-lint version: '${RESOLVED_VERSION:-<none>}', version-file: '${RESOLVED_VERSION_FILE:-<none>}'"
-        echo "version=$RESOLVED_VERSION" >> "$GITHUB_OUTPUT"
-        echo "version-file=$RESOLVED_VERSION_FILE" >> "$GITHUB_OUTPUT"
-
     - name: Run linter
       uses: golangci/golangci-lint-action@v9
       with:
         working-directory: ${{ inputs.working-directory }}
-        version: ${{ steps.resolve-golangci-lint.outputs.version }}
-        version-file: ${{ steps.resolve-golangci-lint.outputs.version-file }}
+        version-file: ${{ inputs.working-directory }}/.golangci-lint-version
 
     - name: Run tests
       if: ${{ inputs.run-tests == 'true' }}
