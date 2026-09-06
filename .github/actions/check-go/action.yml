@@ -85,7 +85,7 @@ runs:
       uses: golangci/golangci-lint-action@v9
       with:
         working-directory: ${{ inputs.working-directory }}
-        version-file: ${{ inputs.working-directory }}/.golangci-lint-version
+        version-file: .golangci-lint-version
 
     - name: Run tests
       if: ${{ inputs.run-tests == 'true' }}
