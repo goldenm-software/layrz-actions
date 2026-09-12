@@ -1,0 +1,41 @@
+name: 'Dry Run Publish'
+description: 'Run flutter pub publish --dry-run and decide pass/fail, optionally ignoring known-benign advisories'
+author: 'Layrz'
+
+inputs:
+  working-directory:
+    description: 'Directory to run Flutter commands in'
+    required: false
+    default: '.'
+  flutter-version:
+    description: 'Flutter version to use'
+    required: false
+    default: '3.41.9'
+  ignore-publish-advisories:
+    description: 'When true, ignore three known-benign publish advisories (pre-release dependency, dartbug.com analyzer quirk, git-source); when false, any advisory fails (strict)'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Flutter
+      uses: flutter-actions/setup-flutter@v4
+      with:
+        channel: stable
+        version: ${{ inputs.flutter-version }}
+        cache: true
+        cache-sdk: true
+        cache-key: ${{ runner.os }}-flutter-${{ hashFiles(format('{0}/pubspec.yaml', inputs.working-directory)) }}
+
+    - name: Install dependencies
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: flutter pub get
+
+    - name: Validate publish (dry-run)
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        IGNORE_ADVISORIES: ${{ inputs.ignore-publish-advisories }}
+      run: bash "${{ github.action_path }}/dry_run_publish.sh"
