@@ -27,6 +27,14 @@ inputs:
     description: 'Name for the coverage artifact'
     required: false
     default: 'flutter-coverage'
+  pub-dry-run:
+    description: 'Whether to run flutter pub get with --dry-run'
+    required: false
+    default: 'false'
+  ignore-publish-advisories:
+    description: 'When true, ignore three known-benign publish advisories (pre-release dependency, dartbug.com analyzer quirk, git-source); when false, any advisory fails (strict)'
+    required: false
+    default: 'false'
 
 outputs:
   lcov-path:
@@ -97,3 +105,11 @@ runs:
         name: ${{ inputs.artifact-name }}
         path: ${{ inputs.working-directory }}/coverage/lcov.info
         retention-days: 1
+
+    - name: Run flutter pub get with --dry-run
+      if: ${{ inputs.pub-dry-run == 'true' }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        IGNORE_ADVISORIES: ${{ inputs.ignore-publish-advisories }}
+      run: bash "${{ github.action_path }}/dry_run_publish.sh"
