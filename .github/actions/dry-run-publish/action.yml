@@ -15,6 +15,10 @@ inputs:
     description: 'When true, ignore three known-benign publish advisories (pre-release dependency, dartbug.com analyzer quirk, git-source); when false, any advisory fails (strict)'
     required: false
     default: 'false'
+  ignore-missing-metadata-files:
+    description: 'When true, ignore the blocking "Please add a README.md" and "Please add a CHANGELOG.md" issues from the publish dry-run. Use for internal monorepo packages that are never published and intentionally omit those files. Independent of ignore-publish-advisories.'
+    required: false
+    default: 'false'
 
 runs:
   using: 'composite'
@@ -38,4 +42,5 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       env:
         IGNORE_ADVISORIES: ${{ inputs.ignore-publish-advisories }}
+        IGNORE_MISSING_METADATA: ${{ inputs.ignore-missing-metadata-files }}
       run: bash "${{ github.action_path }}/dry_run_publish.sh"
