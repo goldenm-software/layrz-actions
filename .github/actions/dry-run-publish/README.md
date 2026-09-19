@@ -10,6 +10,7 @@ reported output, instead of trusting the dry-run's own exit code alone.
   with:
     flutter-version: '3.47.2'
     ignore-publish-advisories: 'true'
+    ignore-missing-metadata-files: 'true'
 ```
 
 ## Inputs
@@ -19,6 +20,7 @@ reported output, instead of trusting the dry-run's own exit code alone.
 | `working-directory` | Directory to run Flutter commands in | No | `.` |
 | `flutter-version` | Flutter version to use | No | `3.41.9` |
 | `ignore-publish-advisories` | Whether to ignore three known-benign publish advisories | No | `false` |
+| `ignore-missing-metadata-files` | Whether to ignore the blocking "Please add a README.md" and "Please add a CHANGELOG.md" issues | No | `false` |
 
 ## The `ignore-publish-advisories` flag
 
@@ -43,6 +45,23 @@ Leave `ignore-publish-advisories: 'false'` (the default) for a hosted package
 published to pub.dev, so strict validation applies: any reported issue,
 including the three classes above, fails the run.
 
+## The `ignore-missing-metadata-files` flag
+
+`flutter pub publish --dry-run` blocks on two issues when a package is
+missing top-level documentation files:
+
+1. "Please add a `README.md` file."
+2. "Please add a `CHANGELOG.md` file."
+
+Set `ignore-missing-metadata-files: 'true'` for an internal monorepo package
+that is never published and intentionally omits those files, so only those
+two blocking issues are ignored and everything else still fails the run.
+This flag is independent of `ignore-publish-advisories`: enable either, both,
+or neither depending on the package.
+
+Leave `ignore-missing-metadata-files: 'false'` (the default) for a package
+that is expected to ship a `README.md` and `CHANGELOG.md`.
+
 ## What It Does
 
 1. **Setup Flutter**: configures the Flutter SDK with caching based on
@@ -51,7 +70,7 @@ including the three classes above, fails the run.
 3. **Validate publish (dry-run)**: runs the bundled `dry_run_publish.sh`,
    which invokes `flutter pub publish --dry-run`, parses the reported issue
    blocks, and fails closed on anything not covered by
-   `ignore-publish-advisories`.
+   `ignore-publish-advisories` or `ignore-missing-metadata-files`.
 
 ## Full Examples
 
